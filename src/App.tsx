@@ -191,7 +191,7 @@ const Dashboard: React.FC = () => {
   
   useEffect(() => {
     loadData();
-  }, [activeTab]);
+  }, [activeTab, loadData]);
   
   const loadData = async () => {
     setLoading(true);
