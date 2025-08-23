@@ -1,5 +1,4 @@
-import React, { useState, useEffect } from 'react';
-import { 
+import React, { useState, useEffect, useCallback } from 'react';import { 
   Upload, 
   Search, 
   CheckCircle, 
@@ -189,7 +188,7 @@ const Dashboard: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [applying, setApplying] = useState<Record<string, boolean>>({});
   
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     setLoading(true);
     try {
       if (activeTab === 'dashboard') {
@@ -209,11 +208,11 @@ const Dashboard: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [activeTab]);
 
   useEffect(() => {
-    loadData();
-  }, [activeTab, loadData]);
+  loadData();
+}, [loadData]);
   
   const handleApply = async (jobId: string) => {
     setApplying(prev => ({ ...prev, [jobId]: true }));
