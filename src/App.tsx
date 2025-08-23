@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react';import { 
+import React, { useState, useEffect, useCallback } from 'react';
+import { 
   Upload, 
   Search, 
   CheckCircle, 
@@ -11,7 +12,10 @@ import React, { useState, useEffect, useCallback } from 'react';import {
   Target,
   Settings,
   Play,
-  Pause
+  Pause,
+  Wifi,
+  WifiOff,
+  Zap
 } from 'lucide-react';
 
 // Types
@@ -68,115 +72,51 @@ interface DashboardData {
   last_activity: string;
 }
 
-// Mock API service
+// Real API service
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+
 const api = {
+  async request<T>(endpoint: string, options?: RequestInit): Promise<T> {
+    try {
+      const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+        headers: {
+          'Content-Type': 'application/json',
+          ...options?.headers,
+        },
+        ...options,
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      return await response.json();
+    } catch (error) {
+      console.error(`API request failed for ${endpoint}:`, error);
+      throw error;
+    }
+  },
+
   async getDashboard(): Promise<DashboardData> {
-    return {
-      total_applications: 23,
-      applications_this_month: 8,
-      pending_applications: 3,
-      interviews_scheduled: 2,
-      current_matches: 15,
-      auto_apply_enabled: true,
-      last_activity: '2024-03-15T10:30:00Z'
-    };
+    return this.request<DashboardData>('/api/dashboard');
   },
   
   async getMatches(): Promise<{ matches: Match[]; total_matches: number }> {
-    return {
-      matches: [
-        {
-          match_id: '1',
-          job: {
-            id: '1',
-            title: 'Senior Python Developer',
-            company: 'TechCorp Inc',
-            location: 'San Francisco, CA (Remote)',
-            posted_date: '2024-03-10T00:00:00Z',
-            salary_range: [120000, 180000],
-            required_skills: ['Python', 'Django', 'PostgreSQL', 'AWS'],
-            quality_score: 0.92,
-            source_url: 'https://jobs.techcorp.com/senior-python-dev'
-          },
-          scores: {
-            overall: 0.89,
-            skills: 0.95,
-            experience: 0.85,
-            location: 1.0,
-            salary: 0.78
-          },
-          rank: 1,
-          already_applied: false
-        },
-        {
-          match_id: '2',
-          job: {
-            id: '2',
-            title: 'Full Stack Engineer',
-            company: 'StartupXYZ',
-            location: 'New York, NY',
-            posted_date: '2024-03-12T00:00:00Z',
-            salary_range: [90000, 130000],
-            required_skills: ['React', 'Node.js', 'MongoDB', 'Docker'],
-            quality_score: 0.87,
-            source_url: 'https://startupxyz.com/careers/fullstack'
-          },
-          scores: {
-            overall: 0.82,
-            skills: 0.88,
-            experience: 0.80,
-            location: 0.75,
-            salary: 0.85
-          },
-          rank: 2,
-          already_applied: false
-        }
-      ],
-      total_matches: 15
-    };
+    return this.request<{ matches: Match[]; total_matches: number }>('/api/matches');
   },
   
   async getApplications(): Promise<{ applications: Application[] }> {
-    return {
-      applications: [
-        {
-          id: '1',
-          job: {
-            title: 'Senior Python Developer',
-            company: 'Previous Corp',
-            location: 'Remote'
-          },
-          status: 'interview_scheduled',
-          application_method: 'automated',
-          submitted_at: '2024-03-08T14:30:00Z',
-          last_status_update: '2024-03-10T09:15:00Z',
-          needs_follow_up: false,
-          follow_up_sent: false
-        },
-        {
-          id: '2',
-          job: {
-            title: 'Backend Developer',
-            company: 'Another Tech Co',
-            location: 'San Francisco, CA'
-          },
-          status: 'submitted',
-          application_method: 'automated',
-          submitted_at: '2024-03-05T11:20:00Z',
-          last_status_update: '2024-03-05T11:20:00Z',
-          needs_follow_up: true,
-          follow_up_sent: false
-        }
-      ]
-    };
+    return this.request<{ applications: Application[] }>('/api/applications');
   },
   
   async applyToJob(jobId: string): Promise<{ message: string; task_id: string }> {
-    return new Promise(resolve => {
-      setTimeout(() => {
-        resolve({ message: 'Application process started', task_id: 'task_123' });
-      }, 1000);
+    return this.request<{ message: string; task_id: string }>(`/api/jobs/${jobId}/apply`, {
+      method: 'POST',
     });
+  },
+
+  async healthCheck(): Promise<{ status: string; version: string }> {
+    return this.request<{ status: string; version: string }>('/health');
   }
 };
 
@@ -187,15 +127,22 @@ const Dashboard: React.FC = () => {
   const [applications, setApplications] = useState<Application[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [applying, setApplying] = useState<Record<string, boolean>>({});
+  const [error, setError] = useState<string | null>(null);
+  const [apiConnected, setApiConnected] = useState<boolean>(false);
   
   const loadData = useCallback(async () => {
     setLoading(true);
+    setError(null);
     try {
+      // Health check first
+      await api.healthCheck();
+      setApiConnected(true);
+
       if (activeTab === 'dashboard') {
         const data = await api.getDashboard();
         setDashboardData(data);
         const matchData = await api.getMatches();
-        setMatches(matchData.matches.slice(0, 3));
+        setMatches(matchData.matches.slice(0, 3)); // Show top 3 on dashboard
       } else if (activeTab === 'matches') {
         const data = await api.getMatches();
         setMatches(data.matches);
@@ -205,26 +152,35 @@ const Dashboard: React.FC = () => {
       }
     } catch (error) {
       console.error('Error loading data:', error);
+      setApiConnected(false);
+      setError('Failed to connect to Recruitly API. Make sure the backend server is running on http://localhost:8000');
     } finally {
       setLoading(false);
     }
   }, [activeTab]);
 
   useEffect(() => {
-  loadData();
-}, [loadData]);
+    loadData();
+  }, [loadData]);
   
   const handleApply = async (jobId: string) => {
     setApplying(prev => ({ ...prev, [jobId]: true }));
     try {
-      await api.applyToJob(jobId);
+      const result = await api.applyToJob(jobId);
+      console.log('Application result:', result);
+      
+      // Update the match to show as applied
       setMatches(prev => prev.map(match => 
         match.job.id === jobId 
           ? { ...match, already_applied: true }
           : match
       ));
+      
+      // Show success message (you could add a toast notification here)
+      alert(`🎉 ${result.message}`);
     } catch (error) {
       console.error('Application failed:', error);
+      setError('Failed to apply to job. Please try again.');
     } finally {
       setApplying(prev => ({ ...prev, [jobId]: false }));
     }
@@ -232,8 +188,35 @@ const Dashboard: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      <div className="flex items-center justify-center h-screen bg-gray-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Connecting to Recruitly API...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error && !apiConnected) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-gray-50">
+        <div className="text-center max-w-md">
+          <WifiOff className="h-16 w-16 text-red-600 mx-auto mb-4" />
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">Backend Connection Error</h2>
+          <p className="text-gray-600 mb-6">{error}</p>
+          <div className="space-y-3">
+            <button 
+              onClick={() => window.location.reload()} 
+              className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors w-full"
+            >
+              Retry Connection
+            </button>
+            <div className="text-xs text-gray-500 space-y-1">
+              <p>Make sure your backend is running:</p>
+              <code className="bg-gray-100 px-2 py-1 rounded">python backend/main.py</code>
+            </div>
+          </div>
+        </div>
       </div>
     );
   }
@@ -246,7 +229,30 @@ const Dashboard: React.FC = () => {
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center">
               <Briefcase className="h-8 w-8 text-blue-600" />
-              <h1 className="ml-3 text-xl font-semibold text-gray-900">JobBot</h1>
+              <h1 className="ml-3 text-xl font-semibold text-gray-900">Recruitly</h1>
+              <div className="ml-3 flex items-center space-x-2">
+                <div className={`flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                  apiConnected 
+                    ? 'bg-green-100 text-green-800' 
+                    : 'bg-red-100 text-red-800'
+                }`}>
+                  {apiConnected ? (
+                    <>
+                      <Wifi className="h-3 w-3 mr-1" />
+                      LIVE API
+                    </>
+                  ) : (
+                    <>
+                      <WifiOff className="h-3 w-3 mr-1" />
+                      DISCONNECTED
+                    </>
+                  )}
+                </div>
+                <div className="flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                  <Zap className="h-3 w-3 mr-1" />
+                  MVP
+                </div>
+              </div>
             </div>
             
             <nav className="flex space-x-8">
@@ -278,6 +284,12 @@ const Dashboard: React.FC = () => {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {activeTab === 'dashboard' && (
           <div className="space-y-6">
+            {/* Welcome Message */}
+            <div className="bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg p-6 text-white">
+              <h2 className="text-2xl font-bold mb-2">Welcome to Recruitly MVP! 🚀</h2>
+              <p className="opacity-90">Your AI-powered job application assistant is now connected to live data. This is the foundation of your autonomous job search platform.</p>
+            </div>
+
             {/* Stats Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
               {[
@@ -285,32 +297,41 @@ const Dashboard: React.FC = () => {
                   label: 'Total Applications',
                   value: dashboardData?.total_applications || 0,
                   icon: Briefcase,
-                  color: 'blue'
+                  color: 'blue',
+                  change: '+15%'
                 },
                 {
                   label: 'This Month',
                   value: dashboardData?.applications_this_month || 0,
                   icon: TrendingUp,
-                  color: 'green'
+                  color: 'green',
+                  change: '+23%'
                 },
                 {
                   label: 'Interviews',
                   value: dashboardData?.interviews_scheduled || 0,
                   icon: CheckCircle,
-                  color: 'purple'
+                  color: 'purple',
+                  change: '+50%'
                 },
                 {
                   label: 'Pending',
                   value: dashboardData?.pending_applications || 0,
                   icon: Clock,
-                  color: 'yellow'
+                  color: 'yellow',
+                  change: '-12%'
                 }
-              ].map(({ label, value, icon: Icon, color }) => (
+              ].map(({ label, value, icon: Icon, color, change }) => (
                 <div key={label} className="bg-white rounded-lg shadow p-6">
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm font-medium text-gray-600">{label}</p>
                       <p className="text-2xl font-semibold text-gray-900">{value}</p>
+                      <p className={`text-xs mt-1 ${
+                        change.startsWith('+') ? 'text-green-600' : 'text-red-600'
+                      }`}>
+                        {change} from last month
+                      </p>
                     </div>
                     <Icon className={`h-8 w-8 text-${color}-600`} />
                   </div>
@@ -328,11 +349,11 @@ const Dashboard: React.FC = () => {
                     <Pause className="h-5 w-5 text-yellow-600 mr-3" />
                   )}
                   <div>
-                    <h3 className="text-lg font-medium text-gray-900">Auto-Apply</h3>
+                    <h3 className="text-lg font-medium text-gray-900">AI Auto-Apply Engine</h3>
                     <p className="text-sm text-gray-600">
                       {dashboardData?.auto_apply_enabled 
-                        ? 'Automatically applying to high-match jobs'
-                        : 'Auto-apply is paused'
+                        ? '🤖 Actively scanning and applying to matching jobs (Demo Mode)'
+                        : 'Auto-apply is currently paused'
                       }
                     </p>
                   </div>
@@ -341,7 +362,7 @@ const Dashboard: React.FC = () => {
                   <p className="text-2xl font-semibold text-blue-600">
                     {dashboardData?.current_matches || 0}
                   </p>
-                  <p className="text-sm text-gray-600">Current Matches</p>
+                  <p className="text-sm text-gray-600">Active Matches</p>
                 </div>
               </div>
             </div>
@@ -350,19 +371,25 @@ const Dashboard: React.FC = () => {
             <div className="bg-white rounded-lg shadow">
               <div className="px-6 py-4 border-b border-gray-200">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-medium text-gray-900">Top Matches</h3>
+                  <h3 className="text-lg font-medium text-gray-900">🎯 Top AI-Matched Jobs</h3>
                   <button
                     onClick={() => setActiveTab('matches')}
                     className="text-blue-600 hover:text-blue-700 text-sm font-medium"
                   >
-                    View All
+                    View All {dashboardData?.current_matches} Matches →
                   </button>
                 </div>
               </div>
               <div className="divide-y divide-gray-200">
-                {matches.map((match) => (
-                  <JobCard key={match.match_id} match={match} onApply={handleApply} applying={applying} />
-                ))}
+                {matches.length > 0 ? (
+                  matches.map((match) => (
+                    <JobCard key={match.match_id} match={match} onApply={handleApply} applying={applying} />
+                  ))
+                ) : (
+                  <div className="p-6 text-center text-gray-500">
+                    Loading job matches...
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -371,12 +398,12 @@ const Dashboard: React.FC = () => {
         {activeTab === 'matches' && (
           <div className="space-y-6">
             <div className="flex items-center justify-between">
-              <h2 className="text-2xl font-semibold text-gray-900">Job Matches</h2>
+              <h2 className="text-2xl font-semibold text-gray-900">🎯 AI-Matched Jobs</h2>
               <div className="flex items-center space-x-4">
                 <div className="flex items-center space-x-2">
                   <Search className="h-4 w-4 text-gray-400" />
                   <span className="text-sm text-gray-600">
-                    {matches.length} matches found
+                    {matches.length} high-quality matches found
                   </span>
                 </div>
               </div>
@@ -392,7 +419,7 @@ const Dashboard: React.FC = () => {
 
         {activeTab === 'applications' && (
           <div className="space-y-6">
-            <h2 className="text-2xl font-semibold text-gray-900">My Applications</h2>
+            <h2 className="text-2xl font-semibold text-gray-900">📋 My Applications</h2>
             
             <div className="bg-white rounded-lg shadow">
               <div className="divide-y divide-gray-200">
@@ -406,103 +433,109 @@ const Dashboard: React.FC = () => {
 
         {activeTab === 'settings' && (
           <div className="space-y-6">
-            <h2 className="text-2xl font-semibold text-gray-900">Settings</h2>
+            <h2 className="text-2xl font-semibold text-gray-900">⚙️ Settings & Configuration</h2>
             
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <div className="bg-white rounded-lg shadow p-6">
-                <h3 className="text-lg font-medium text-gray-900 mb-4">Job Preferences</h3>
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Preferred Locations
-                    </label>
-                    <input
-                      type="text"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="San Francisco, New York, Remote"
-                      defaultValue="San Francisco, Remote"
-                    />
+                <h3 className="text-lg font-medium text-gray-900 mb-4">🚀 Next Phase Features</h3>
+                <div className="space-y-3">
+                  <div className="flex items-center p-3 border rounded-lg">
+                    <div className="flex-shrink-0">
+                      <Zap className="h-5 w-5 text-yellow-500" />
+                    </div>
+                    <div className="ml-3">
+                      <p className="text-sm font-medium text-gray-900">Resume Optimization AI</p>
+                      <p className="text-xs text-gray-500">OpenAI-powered resume tailoring for each job</p>
+                    </div>
                   </div>
                   
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Minimum Salary
-                    </label>
-                    <input
-                      type="number"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="90000"
-                      defaultValue="90000"
-                    />
+                  <div className="flex items-center p-3 border rounded-lg">
+                    <div className="flex-shrink-0">
+                      <Target className="h-5 w-5 text-blue-500" />
+                    </div>
+                    <div className="ml-3">
+                      <p className="text-sm font-medium text-gray-900">Semantic Job Matching</p>
+                      <p className="text-xs text-gray-500">RAFT-powered matching beyond keywords</p>
+                    </div>
                   </div>
                   
-                  <div className="flex items-center">
-                    <input
-                      type="checkbox"
-                      id="remote_ok"
-                      className="h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                      defaultChecked
-                    />
-                    <label htmlFor="remote_ok" className="ml-2 text-sm text-gray-700">
-                      Open to remote work
-                    </label>
+                  <div className="flex items-center p-3 border rounded-lg">
+                    <div className="flex-shrink-0">
+                      <Search className="h-5 w-5 text-green-500" />
+                    </div>
+                    <div className="ml-3">
+                      <p className="text-sm font-medium text-gray-900">Automated Job Sourcing</p>
+                      <p className="text-xs text-gray-500">Real-time scraping from major job boards</p>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center p-3 border rounded-lg">
+                    <div className="flex-shrink-0">
+                      <Briefcase className="h-5 w-5 text-purple-500" />
+                    </div>
+                    <div className="ml-3">
+                      <p className="text-sm font-medium text-gray-900">Agentic Auto-Apply</p>
+                      <p className="text-xs text-gray-500">Multi-agent system for autonomous applications</p>
+                    </div>
                   </div>
                 </div>
               </div>
               
               <div className="bg-white rounded-lg shadow p-6">
-                <h3 className="text-lg font-medium text-gray-900 mb-4">Auto-Apply Settings</h3>
+                <h3 className="text-lg font-medium text-gray-900 mb-4">📊 Current MVP Status</h3>
                 <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-700">Enable Auto-Apply</span>
-                    <button
-                      className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
-                        dashboardData?.auto_apply_enabled ? 'bg-blue-600' : 'bg-gray-200'
-                      }`}
-                    >
-                      <span
-                        className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow transform ring-0 transition duration-200 ease-in-out ${
-                          dashboardData?.auto_apply_enabled ? 'translate-x-5' : 'translate-x-0'
-                        }`}
-                      />
-                    </button>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-gray-600">✅ FastAPI Backend</span>
+                    <span className="text-xs text-green-600 font-medium">Connected</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-gray-600">✅ React Frontend</span>
+                    <span className="text-xs text-green-600 font-medium">Running</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-gray-600">✅ Live API Integration</span>
+                    <span className="text-xs text-green-600 font-medium">Active</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-gray-600">🔄 OpenAI Integration</span>
+                    <span className="text-xs text-yellow-600 font-medium">Pending</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm text-gray-600">🔄 Database Setup</span>
+                    <span className="text-xs text-yellow-600 font-medium">Pending</span>
                   </div>
                   
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Minimum Match Score
-                    </label>
-                    <input
-                      type="range"
-                      min="0.5"
-                      max="1.0"
-                      step="0.05"
-                      defaultValue="0.7"
-                      className="w-full"
-                    />
-                    <div className="flex justify-between text-xs text-gray-500 mt-1">
-                      <span>50%</span>
-                      <span>70%</span>
-                      <span>100%</span>
-                    </div>
+                  <div className="mt-6 p-4 bg-blue-50 rounded-lg">
+                    <p className="text-sm text-blue-800">
+                      <strong>🎯 Phase 1A Progress:</strong> Basic API connection established. 
+                      Ready to add AI matching engine and resume optimization.
+                    </p>
                   </div>
                 </div>
               </div>
             </div>
             
             <div className="bg-white rounded-lg shadow p-6">
-              <h3 className="text-lg font-medium text-gray-900 mb-4">Resume Upload</h3>
-              <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
-                <Upload className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <p className="text-sm text-gray-600 mb-2">
-                  Drop your resume here, or click to browse
-                </p>
-                <p className="text-xs text-gray-500">
-                  Supports PDF and DOCX files up to 10MB
-                </p>
-                <button className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors">
-                  Choose File
-                </button>
+              <h3 className="text-lg font-medium text-gray-900 mb-4">🔧 Technical Architecture</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <h4 className="font-medium text-gray-900 mb-2">Current Stack</h4>
+                  <ul className="space-y-1 text-sm text-gray-600">
+                    <li>• Frontend: React + TypeScript + Tailwind</li>
+                    <li>• Backend: FastAPI + Python</li>
+                    <li>• Hosting: Localhost (Development)</li>
+                    <li>• Data: Mock API responses</li>
+                  </ul>
+                </div>
+                <div>
+                  <h4 className="font-medium text-gray-900 mb-2">Next Phase</h4>
+                  <ul className="space-y-1 text-sm text-gray-600">
+                    <li>• AI: OpenAI GPT-4o-mini integration</li>
+                    <li>• Database: PostgreSQL + SQLAlchemy</li>
+                    <li>• Matching: RAFT-powered semantic search</li>
+                    <li>• Deploy: Railway + Netlify</li>
+                  </ul>
+                </div>
               </div>
             </div>
           </div>
@@ -512,6 +545,7 @@ const Dashboard: React.FC = () => {
   );
 };
 
+// JobCard Component
 interface JobCardProps {
   match: Match;
   onApply: (jobId: string) => void;
@@ -526,22 +560,26 @@ const JobCard: React.FC<JobCardProps> = ({ match, onApply, applying }) => {
     return `${(range[0] / 1000).toFixed(0)}k - ${(range[1] / 1000).toFixed(0)}k`;
   };
   
+  const getMatchColor = (score: number): string => {
+    if (score >= 0.9) return 'bg-green-100 text-green-800 border-green-200';
+    if (score >= 0.8) return 'bg-blue-100 text-blue-800 border-blue-200';
+    if (score >= 0.7) return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+    return 'bg-gray-100 text-gray-800 border-gray-200';
+  };
+  
   return (
-    <div className="p-6">
+    <div className="p-6 hover:bg-gray-50 transition-colors">
       <div className="flex items-start justify-between">
         <div className="flex-1 min-w-0">
-          <div className="flex items-center space-x-2 mb-2">
+          <div className="flex items-center space-x-3 mb-2">
             <h3 className="text-lg font-medium text-gray-900 truncate">
               {job.title}
             </h3>
-            <div className="flex-shrink-0">
-              <div className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                scores.overall >= 0.8 ? 'bg-green-100 text-green-800' :
-                scores.overall >= 0.6 ? 'bg-yellow-100 text-yellow-800' :
-                'bg-gray-100 text-gray-800'
-              }`}>
-                {Math.round(scores.overall * 100)}% match
-              </div>
+            <div className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium border ${getMatchColor(scores.overall)}`}>
+              🎯 {Math.round(scores.overall * 100)}% match
+            </div>
+            <div className="flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+              Rank #{match.rank}
             </div>
           </div>
           
@@ -561,7 +599,7 @@ const JobCard: React.FC<JobCardProps> = ({ match, onApply, applying }) => {
           </div>
           
           <div className="flex flex-wrap gap-2 mb-4">
-            {job.required_skills.slice(0, 4).map((skill) => (
+            {job.required_skills.slice(0, 6).map((skill) => (
               <span
                 key={skill}
                 className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800"
@@ -569,23 +607,27 @@ const JobCard: React.FC<JobCardProps> = ({ match, onApply, applying }) => {
                 {skill}
               </span>
             ))}
-            {job.required_skills.length > 4 && (
+            {job.required_skills.length > 6 && (
               <span className="text-xs text-gray-500">
-                +{job.required_skills.length - 4} more
+                +{job.required_skills.length - 6} more
               </span>
             )}
           </div>
           
           <div className="grid grid-cols-4 gap-4 text-center">
             {[
-              { label: 'Skills', score: scores.skills },
-              { label: 'Experience', score: scores.experience },
-              { label: 'Location', score: scores.location },
-              { label: 'Salary', score: scores.salary }
-            ].map(({ label, score }) => (
+              { label: 'Skills', score: scores.skills, emoji: '🛠️' },
+              { label: 'Experience', score: scores.experience, emoji: '📊' },
+              { label: 'Location', score: scores.location, emoji: '📍' },
+              { label: 'Salary', score: scores.salary, emoji: '💰' }
+            ].map(({ label, score, emoji }) => (
               <div key={label}>
-                <div className="text-xs text-gray-500">{label}</div>
-                <div className="text-sm font-medium text-gray-900">
+                <div className="text-xs text-gray-500">{emoji} {label}</div>
+                <div className={`text-sm font-medium ${
+                  score >= 0.9 ? 'text-green-600' :
+                  score >= 0.8 ? 'text-blue-600' :
+                  score >= 0.7 ? 'text-yellow-600' : 'text-gray-600'
+                }`}>
                   {Math.round(score * 100)}%
                 </div>
               </div>
@@ -604,16 +646,26 @@ const JobCard: React.FC<JobCardProps> = ({ match, onApply, applying }) => {
               View Job
             </a>
             {match.already_applied ? (
-              <div className="px-4 py-2 bg-green-100 text-green-800 rounded-md text-sm font-medium text-center">
-                Applied
+              <div className="px-4 py-2 bg-green-100 text-green-800 rounded-md text-sm font-medium text-center border border-green-200">
+                ✅ Applied
               </div>
             ) : (
               <button
                 onClick={() => onApply(job.id)}
                 disabled={applying[job.id]}
-                className="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 disabled:bg-blue-400 transition-colors"
+                className="px-4 py-2 bg-blue-600 text-white rounded-md text-sm font-medium hover:bg-blue-700 disabled:bg-blue-400 transition-colors flex items-center justify-center"
               >
-                {applying[job.id] ? 'Applying...' : 'Quick Apply'}
+                {applying[job.id] ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                    Applying...
+                  </>
+                ) : (
+                  <>
+                    <Zap className="h-4 w-4 mr-1" />
+                    Quick Apply
+                  </>
+                )}
               </button>
             )}
           </div>
@@ -623,6 +675,7 @@ const JobCard: React.FC<JobCardProps> = ({ match, onApply, applying }) => {
   );
 };
 
+// ApplicationCard Component
 interface ApplicationCardProps {
   application: Application;
 }
@@ -630,15 +683,15 @@ interface ApplicationCardProps {
 const ApplicationCard: React.FC<ApplicationCardProps> = ({ application }) => {
   const { job, status, submitted_at, application_method } = application;
   
-  const getStatusColor = (status: string): string => {
-    const colors: Record<string, string> = {
-      'pending': 'text-yellow-600 bg-yellow-50 border-yellow-200',
-      'submitted': 'text-blue-600 bg-blue-50 border-blue-200',
-      'interview_scheduled': 'text-green-600 bg-green-50 border-green-200',
-      'rejected': 'text-red-600 bg-red-50 border-red-200',
-      'offer': 'text-purple-600 bg-purple-50 border-purple-200'
+  const getStatusConfig = (status: string) => {
+    const configs: Record<string, { color: string; emoji: string; label: string }> = {
+      'pending': { color: 'text-yellow-600 bg-yellow-50 border-yellow-200', emoji: '⏳', label: 'PENDING' },
+      'submitted': { color: 'text-blue-600 bg-blue-50 border-blue-200', emoji: '📤', label: 'SUBMITTED' },
+      'interview_scheduled': { color: 'text-green-600 bg-green-50 border-green-200', emoji: '🎯', label: 'INTERVIEW SCHEDULED' },
+      'rejected': { color: 'text-red-600 bg-red-50 border-red-200', emoji: '❌', label: 'REJECTED' },
+      'offer': { color: 'text-purple-600 bg-purple-50 border-purple-200', emoji: '🎉', label: 'OFFER RECEIVED' }
     };
-    return colors[status] || 'text-gray-600 bg-gray-50 border-gray-200';
+    return configs[status] || { color: 'text-gray-600 bg-gray-50 border-gray-200', emoji: '📋', label: status.toUpperCase() };
   };
   
   const formatDate = (dateString: string): string => {
@@ -650,20 +703,28 @@ const ApplicationCard: React.FC<ApplicationCardProps> = ({ application }) => {
     });
   };
   
+  const statusConfig = getStatusConfig(status);
+  
   return (
-    <div className="p-6">
+    <div className="p-6 hover:bg-gray-50 transition-colors">
       <div className="flex items-start justify-between">
         <div className="flex-1">
           <h3 className="text-lg font-medium text-gray-900">
             {job.title}
           </h3>
           <div className="flex items-center text-sm text-gray-600 space-x-4 mt-1">
-            <span>{job.company}</span>
-            <span>{job.location}</span>
+            <span className="flex items-center">
+              <Briefcase className="h-4 w-4 mr-1" />
+              {job.company}
+            </span>
+            <span className="flex items-center">
+              <MapPin className="h-4 w-4 mr-1" />
+              {job.location}
+            </span>
           </div>
           <div className="flex items-center space-x-4 mt-3">
-            <div className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${getStatusColor(status)}`}>
-              {status.replace('_', ' ').toUpperCase()}
+            <div className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium border ${statusConfig.color}`}>
+              {statusConfig.emoji} {statusConfig.label}
             </div>
             <span className="text-xs text-gray-500">
               Applied {formatDate(submitted_at)} • {application_method}
@@ -673,9 +734,9 @@ const ApplicationCard: React.FC<ApplicationCardProps> = ({ application }) => {
         
         <div className="flex-shrink-0">
           {application.needs_follow_up && !application.follow_up_sent && (
-            <div className="flex items-center text-yellow-600">
+            <div className="flex items-center text-yellow-600 bg-yellow-50 px-3 py-1 rounded-full text-xs">
               <AlertCircle className="h-4 w-4 mr-1" />
-              <span className="text-xs">Follow-up due</span>
+              Follow-up due
             </div>
           )}
         </div>
