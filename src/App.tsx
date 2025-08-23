@@ -189,10 +189,6 @@ const Dashboard: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [applying, setApplying] = useState<Record<string, boolean>>({});
   
-  useEffect(() => {
-    loadData();
-  }, [activeTab, loadData]);
-  
   const loadData = async () => {
     setLoading(true);
     try {
@@ -214,6 +210,10 @@ const Dashboard: React.FC = () => {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    loadData();
+  }, [activeTab, loadData]);
   
   const handleApply = async (jobId: string) => {
     setApplying(prev => ({ ...prev, [jobId]: true }));
