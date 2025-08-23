@@ -1,3 +1,5 @@
+setuptools
+wheel
 # FastAPI Backend Requirements for Recruitly MVP
 fastapi==0.104.1
 uvicorn[standard]==0.24.0
