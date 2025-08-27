@@ -1,0 +1,76 @@
+# Recruitly Pre-commit Configuration
+repos:
+  # Python code quality
+  - repo: https://github.com/psf/black
+    rev: 23.12.1
+    hooks:
+      - id: black
+        files: ^backend/.*\.py$
+        args: [--line-length=88]
+
+  - repo: https://github.com/pycqa/flake8
+    rev: 7.0.0
+    hooks:
+      - id: flake8
+        files: ^backend/.*\.py$
+        args: [--max-line-length=88, --ignore=E203,W503]
+
+  - repo: https://github.com/pycqa/isort
+    rev: 5.13.2
+    hooks:
+      - id: isort
+        files: ^backend/.*\.py$
+        args: [--profile=black]
+
+  # JavaScript/TypeScript code quality
+  - repo: https://github.com/pre-commit/mirrors-prettier
+    rev: v3.1.0
+    hooks:
+      - id: prettier
+        files: ^frontend/.*\.(js|jsx|ts|tsx|json|css|md)$
+        args: [--write]
+
+  # General file checks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      - id: trailing-whitespace
+        exclude: ^frontend/node_modules/
+      - id: end-of-file-fixer
+        exclude: ^frontend/node_modules/
+      - id: check-yaml
+      - id: check-json
+        exclude: ^frontend/node_modules/
+      - id: check-merge-conflict
+      - id: check-added-large-files
+        args: [--maxkb=1000]
+
+  # Custom hooks for Recruitly
+  - repo: local
+    hooks:
+      - id: backend-tests
+        name: Backend Tests
+        entry: scripts/run-backend-tests.sh
+        language: script
+        files: ^backend/.*\.py$
+        pass_filenames: false
+        
+      - id: frontend-tests
+        name: Frontend Tests
+        entry: scripts/run-frontend-tests.sh
+        language: script
+        files: ^frontend/src/.*\.(js|jsx|ts|tsx)$
+        pass_filenames: false
+        
+      - id: context-update
+        name: Update Development Context
+        entry: scripts/update-context.sh
+        language: script
+        files: ^(backend/|frontend/src/|docs/|\.augment/).*$
+        pass_filenames: false
+        always_run: true
+
+# Configuration
+default_stages: [commit]
+fail_fast: false
+minimum_pre_commit_version: 3.0.0

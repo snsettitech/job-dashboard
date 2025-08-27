@@ -1,0 +1,61 @@
+# <type>(<scope>): <subject>
+#
+# <body>
+#
+# <footer>
+
+# Type should be one of the following:
+# * feat: A new feature
+# * fix: A bug fix
+# * docs: Documentation only changes
+# * style: Changes that do not affect the meaning of the code
+# * refactor: A code change that neither fixes a bug nor adds a feature
+# * perf: A code change that improves performance
+# * test: Adding missing tests or correcting existing tests
+# * build: Changes that affect the build system or external dependencies
+# * ci: Changes to our CI configuration files and scripts
+# * chore: Other changes that don't modify src or test files
+# * revert: Reverts a previous commit
+
+# Scope should be one of the following (optional):
+# * frontend: Frontend React components and logic
+# * backend: Backend FastAPI services and logic
+# * api: API endpoints and routes
+# * ui: User interface components
+# * auth: Authentication and authorization
+# * db: Database related changes
+# * config: Configuration files
+# * deps: Dependencies
+# * metrics: Metrics and analytics
+# * tests: Test files and testing infrastructure
+# * docs: Documentation
+# * ci: Continuous integration
+# * deploy: Deployment related
+# * ai: AI/ML optimization features
+# * optimization: Resume optimization logic
+# * matching: Job matching algorithms
+# * upload: File upload functionality
+# * dashboard: Dashboard components
+
+# Subject line rules:
+# * Use imperative mood ("add" not "added" or "adds")
+# * Don't capitalize first letter
+# * No period at the end
+# * Limit to 72 characters
+
+# Body rules:
+# * Wrap at 72 characters
+# * Explain what and why, not how
+# * Can include multiple paragraphs
+
+# Footer rules:
+# * Reference issues and pull requests
+# * Note breaking changes with "BREAKING CHANGE:"
+
+# Examples:
+# feat(frontend): add resume upload component
+# fix(api): resolve authentication timeout issue
+# docs: update README with deployment instructions
+# test(backend): add unit tests for AI optimization service
+# refactor(ui): simplify dashboard layout components
+# perf(matching): optimize job matching algorithm performance
