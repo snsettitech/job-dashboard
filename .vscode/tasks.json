@@ -1,0 +1,29 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "📋 Update Recruitly Context",
+      "type": "shell",
+      "command": "node",
+      "args": [".vscode/context-tools/sync-session.js"],
+      "group": "build",
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared"
+      },
+      "options": {
+        "cwd": "${workspaceFolder}"
+      }
+    },
+    {
+      "label": "🧠 Quick Context Check",
+      "type": "shell",
+      "command": "echo",
+      "args": ["Context updated at $(date)"],
+      "dependsOn": "📋 Update Recruitly Context",
+      "group": "build"
+    }
+  ]
+}

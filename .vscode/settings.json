@@ -1,0 +1,58 @@
+{
+  "files.onWillSave": {
+    "updateContext": true
+  },
+
+  "// Augment Agent Configuration": "",
+  "augment.contextFiles": [
+    ".augment/MASTER_CONTEXT.md",
+    ".augment/LEARNING_STRATEGY.md",
+    ".augment/ARCHITECTURE.md",
+    ".augment/ROADMAP.md",
+    "docs/PRODUCT_VISION.md",
+    "docs/AI_OPTIMIZATION_PLAN.md",
+    "docs/DEVELOPMENT_CONTEXT.md",
+    "docs/IMPLEMENTATION_PROGRESS.md"
+  ],
+
+  "augment.systemPrompt": "You are Recruitly's senior technical advisor. Think as CEO for strategy, CTO for architecture, COO for execution. Focus on building self-improving AI optimization system that moves us toward 10,000 users. Every decision should consider: business impact, learning opportunity, revenue potential, and user experience.",
+
+  "augment.autoIncludeFiles": true,
+  "augment.includeWorkspaceContext": true,
+  "augment.projectContext": {
+    "name": "Recruitly",
+    "description": "AI-powered resume optimization platform targeting 10K users",
+    "phase": "1C - AI Issues Resolution & Deployment Prep",
+    "priorities": [
+      "Fix AI optimization issues (OpenAI + numpy)",
+      "Deploy to production (Railway + Netlify)",
+      "Get 20 beta users for validation",
+      "Implement learning data collection"
+    ]
+  },
+
+  "// Auto-run context update on key files": "",
+  "emeraldwalk.runonsave": {
+    "commands": [
+      {
+        "match": "\\.(py|tsx?|jsx?)$",
+        "isAsync": true,
+        "cmd": "node .vscode/context-tools/sync-session.js"
+      },
+      {
+        "match": "\\.augment/.*\\.md$",
+        "isAsync": true,
+        "cmd": "node .vscode/context-tools/update-augment-context.js"
+      }
+    ]
+  },
+
+  "// Development Workflow Integration": "",
+  "files.associations": {
+    "*.md": "markdown",
+    ".augment/*": "markdown"
+  },
+
+  "markdown.preview.breaks": true,
+  "markdown.preview.linkify": true
+}
