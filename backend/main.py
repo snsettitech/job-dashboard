@@ -1,21 +1,52 @@
-# backend/main.py - Safe OpenAI Integration
-from fastapi import FastAPI, HTTPException, UploadFile, File, Form
+"""FastAPI entrypoint mounting modular AI router.
+
+Legacy inlined AI endpoints have been removed; all AI functionality
+is provided via `app/routers/ai_routes.py`. This file now only
+handles app creation, basic health/meta endpoints, and OpenAI
+availability detection for banner/logging.
+"""
+
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, FileResponse
-import os
+from fastapi.responses import JSONResponse
+from contextlib import asynccontextmanager
 from dotenv import load_dotenv
-import asyncio
 from pydantic import BaseModel
-import tempfile
 from datetime import datetime
+import os
+import logging
+import uvicorn
 
 # Load environment variables
 load_dotenv()
 
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+)
+logger = logging.getLogger("recruitly")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Application lifespan manager - replaces deprecated on_event"""
+    # Startup
+    logger.info("🚀 Recruitly AI API starting up...")
+    initialize_ai_services()
+    mount_routers()
+    logger.info("✅ Startup complete")
+    
+    yield
+    
+    # Shutdown
+    logger.info("🛑 Recruitly AI API shutting down...")
+    logger.info("✅ Shutdown complete")
+
 app = FastAPI(
-    title="Recruitly AI API", 
-    version="1.1.0",
-    description="AI-Powered Resume Optimization Platform"
+    title="Recruitly AI API",
+    version="1.3.0",
+    description="AI-Powered Resume Optimization Platform (modular router)",
+    lifespan=lifespan
 )
 
 # CORS for React frontend
@@ -23,31 +54,94 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],  # Allow all origins for now
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
+    expose_headers=["*"]
 )
+
+# Global exception handler for better error responses
+@app.exception_handler(Exception)
+async def global_exception_handler(request, exc):
+    """Handle all unhandled exceptions"""
+    logger.error(f"Unhandled exception: {type(exc).__name__}: {exc}")
+    return JSONResponse(
+        status_code=500,
+        content={
+            "detail": "Internal server error",
+            "error_type": type(exc).__name__,
+            "timestamp": datetime.now().isoformat()
+        }
+    )
+
+# HTTP exception handler for validation errors
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request, exc):
+    """Handle HTTP exceptions with proper CORS headers"""
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={
+            "detail": exc.detail,
+            "status_code": exc.status_code,
+            "timestamp": datetime.now().isoformat()
+        },
+        headers={
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "*",
+            "Access-Control-Allow-Headers": "*",
+        }
+    )
+
+# Add explicit OPTIONS handler for CORS preflight
+@app.options("/{path:path}")
+async def options_handler(path: str):
+    """Handle CORS preflight requests"""
+    return JSONResponse(
+        content={},
+        headers={
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+            "Access-Control-Allow-Headers": "*",
+            "Access-Control-Max-Age": "86400"
+        }
+    )
 
 # Initialize AI availability flags
 ENHANCED_AI_AVAILABLE = False
 OPENAI_AVAILABLE = False
+_INITIALIZATION_DONE = False
+openai_client = None
 
-# Check OpenAI configuration and import services
-if os.getenv("OPENAI_API_KEY"):
-    try:
-        import openai
-        openai_client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-        OPENAI_AVAILABLE = True
-        ENHANCED_AI_AVAILABLE = True  # Set to True since we have OpenAI key
-        print("✅ Enhanced AI pipeline initialized successfully!")
-        print(f"🔍 OpenAI API Key: {'Configured' if os.getenv('OPENAI_API_KEY') else 'Not Set'}")
-    except Exception as e:
-        print(f"⚠️ OpenAI initialization failed: {e}")
-        ENHANCED_AI_AVAILABLE = False
-        OPENAI_AVAILABLE = False
-else:
-    print("⚠️ No OpenAI API key found - using mock responses")
+def initialize_ai_services():
+    """Initialize AI services once to prevent duplicate initialization"""
+    global ENHANCED_AI_AVAILABLE, OPENAI_AVAILABLE, _INITIALIZATION_DONE, openai_client
 
-# Mock AI functions
+    if _INITIALIZATION_DONE:
+        return
+
+    # Check OpenAI configuration and import services
+    if os.getenv("OPENAI_API_KEY"):
+        try:
+            import openai  # type: ignore
+            # Initialize OpenAI client with explicit parameters only
+            openai_client = openai.OpenAI(
+                api_key=os.getenv("OPENAI_API_KEY")
+            )
+            OPENAI_AVAILABLE = True
+            ENHANCED_AI_AVAILABLE = True
+            print("✅ Enhanced AI pipeline initialized successfully!")
+            print(f"🔍 OpenAI API Key: {'Configured' if os.getenv('OPENAI_API_KEY') else 'Not Set'}")
+        except Exception as e:
+            print(f"⚠️ OpenAI initialization failed: {e}")
+            ENHANCED_AI_AVAILABLE = False
+            OPENAI_AVAILABLE = False
+    else:
+        print("⚠️ No OpenAI API key found - using mock responses")
+
+    _INITIALIZATION_DONE = True
+
+############################
+# Mock / Fallback Functions
+############################
 async def mock_analyze_job_match(resume_text: str, job_description: str):
     """Mock job matching analysis"""
     # Simple keyword matching for demo
@@ -113,15 +207,17 @@ async def mock_optimize_resume(resume_text: str, job_description: str):
         "ats_score_improvement": "+28%",
         "match_score_prediction": 0.89,
         "optimization_summary": f"Enhanced resume with {len(improvements)} improvements and {len(keywords_added)} relevant keywords",
-        "optimization_date": datetime.now().isoformat()
+        "optimization_date": datetime.now().isoformat(),
+        "_source": "mock"
     }
 
 # Real OpenAI functions (if available)
 async def real_optimize_resume(resume_text: str, job_description: str):
-    """Real OpenAI resume optimization"""
-    if not OPENAI_AVAILABLE or not openai_client:
+    """Real OpenAI resume optimization (with safe fallback & sanitization)"""
+    global OPENAI_AVAILABLE
+    if not OPENAI_AVAILABLE:
         return await mock_optimize_resume(resume_text, job_description)
-    
+
     try:
         prompt = f"""You are an expert resume writer and ATS specialist. Optimize this resume for the specific job description.
 
@@ -158,12 +254,22 @@ Return ONLY valid JSON:
         result = json.loads(response.choices[0].message.content.strip())
         result["optimization_date"] = datetime.now().isoformat()
         result["match_score_prediction"] = 0.91
-        
+        result["_source"] = "openai"
         return result
         
     except Exception as e:
-        print(f"OpenAI optimization failed: {e}")
-        return await mock_optimize_resume(resume_text, job_description)
+        # Detect invalid / unauthorized key and disable further attempts
+        msg = str(e)
+        is_auth_error = any(token in msg.lower() for token in ["incorrect api key", "invalid_api_key", "401", "unauthorized"]) 
+        if is_auth_error:
+            OPENAI_AVAILABLE = False  # Prevent repeated failing calls
+        # Sanitize potential leakage of key fragments
+        sanitized = msg.split(".")[0] if "Incorrect API key" in msg else msg
+        print(f"⚠️ OpenAI optimization failed -> falling back (sanitized): {sanitized}")
+        fallback = await mock_optimize_resume(resume_text, job_description)
+        fallback["_source"] = "mock_fallback"
+        fallback["fallback_reason"] = "openai_error_auth" if is_auth_error else "openai_error_other"
+        return fallback
 
 # Request models
 class JobMatchRequest(BaseModel):
@@ -175,194 +281,53 @@ async def root():
     return {
         "message": "🚀 Recruitly AI API is running!", 
         "status": "healthy",
-        "version": "1.1.0",
+    "version": "1.3.0",
         "features": ["Resume Upload", "AI Optimization", "Job Matching"],
         "ai_status": "enhanced_ai" if ENHANCED_AI_AVAILABLE else "basic_ai" if bool(os.getenv("OPENAI_API_KEY")) else "demo_mode",
-        "endpoints": ["/api/ai/upload-analyze-optimize", "/health", "/docs"]
+    "endpoints": ["/api/ai/upload-analyze-optimize", "/api/ai/optimize-resume", "/api/ai/batch-analyze-jobs", "/api/metrics/summary", "/health", "/docs"],
+    "router_mounted": True,
+    "legacy_endpoints_removed": True
     }
 
 @app.get("/health")
 async def health_check():
     return {
-        "status": "healthy", 
-        "version": "1.1.0",
+        "status": "healthy",
+        "version": "1.3.0",
         "enhanced_ai_available": ENHANCED_AI_AVAILABLE,
         "openai_configured": bool(os.getenv("OPENAI_API_KEY")),
         "mode": "enhanced_ai" if ENHANCED_AI_AVAILABLE else "basic_ai" if bool(os.getenv("OPENAI_API_KEY")) else "demo_mode"
     }
 
-@app.post("/api/ai/upload-analyze-optimize")
-async def upload_analyze_and_optimize_resume(
-    file: UploadFile = File(...),
-    job_description: str = Form(...),
-    company_name: str = Form(default=""),
-    job_title: str = Form(default="")
-):
-    """Main resume optimization endpoint"""
-    try:
-        print(f"🔄 Processing upload: {file.filename}")
-        
-        # Validate file
-        if not file.filename:
-            raise HTTPException(status_code=400, detail="No file uploaded")
-        
-        # Read and validate content
-        content = await file.read()
-        
-        if file.content_type == "text/plain":
-            resume_text = content.decode("utf-8")
-        elif file.content_type == "application/pdf":
-            # Extract text from PDF
-            try:
-                import fitz  # PyMuPDF
-                doc = fitz.open(stream=content, filetype="pdf")
-                resume_text = ""
-                for page_num in range(doc.page_count):
-                    page = doc[page_num]
-                    resume_text += page.get_text()
-                    resume_text += "\n"  # Add page break
-                doc.close()
-                print(f"📄 Successfully extracted text from PDF ({len(resume_text)} chars)")
-            except ImportError:
-                raise HTTPException(
-                    status_code=400, 
-                    detail="📄 PDF processing not available. Please install PyMuPDF or convert to .txt"
-                )
-            except Exception as e:
-                raise HTTPException(
-                    status_code=400, 
-                    detail=f"📄 Error processing PDF: {str(e)}. Please try converting to .txt"
-                )
-        elif "wordprocessingml" in str(file.content_type):
-            # Extract text from DOCX
-            try:
-                from docx import Document
-                import io
-                doc = Document(io.BytesIO(content))
-                resume_text = ""
-                for paragraph in doc.paragraphs:
-                    resume_text += paragraph.text + "\n"
-                # Also extract text from tables
-                for table in doc.tables:
-                    for row in table.rows:
-                        for cell in row.cells:
-                            resume_text += cell.text + " "
-                    resume_text += "\n"
-                print(f"📝 Successfully extracted text from DOCX ({len(resume_text)} chars)")
-            except ImportError:
-                raise HTTPException(
-                    status_code=400, 
-                    detail="📝 DOCX processing not available. Please install python-docx or convert to .txt"
-                )
-            except Exception as e:
-                raise HTTPException(
-                    status_code=400, 
-                    detail=f"📝 Error processing DOCX: {str(e)}. Please try converting to .txt"
-                )
-        else:
-            raise HTTPException(
-                status_code=400, 
-                detail=f"Unsupported file type: {file.content_type}. Please use PDF, DOCX, or TXT files."
-            )
-        
-        # Validate content length
-        if len(resume_text.strip()) < 50:
-            raise HTTPException(status_code=400, detail="Resume content appears too short")
-        
-        if len(job_description.strip()) < 20:
-            raise HTTPException(status_code=400, detail="Please provide a more detailed job description")
-        
-        print("🤖 Running AI analysis...")
-        
-        # Run analysis and optimization
-        match_result = await mock_analyze_job_match(resume_text, job_description)
-        
-        if OPENAI_AVAILABLE:
-            optimization_result = await real_optimize_resume(resume_text, job_description)
-            print("✅ Used real OpenAI optimization")
-        else:
-            optimization_result = await mock_optimize_resume(resume_text, job_description)
-            print("✅ Used mock optimization")
-        
-        # Build response
-        response = {
-            "status": "success",
-            "processing_date": datetime.now().isoformat(),
-            "file_info": {
-                "filename": file.filename,
-                "content_type": file.content_type,
-                "file_size": len(content),
-                "word_count": len(resume_text.split())
-            },
-            "original_resume": {
-                "text": resume_text,
-                "word_count": len(resume_text.split()),
-                "quality_analysis": {
-                    "quality_score": 82,
-                    "grade": "Good",
-                    "feedback": [
-                        "Well-structured resume with clear sections",
-                        "Consider adding more quantified achievements",
-                        "Strong technical skills representation"
-                    ]
-                },
-                "structured_info": {
-                    "skills": {
-                        "identified_skills": ["Python", "JavaScript", "React", "SQL"],
-                        "skill_count": 4
-                    }
-                }
-            },
-            "job_match_analysis": {
-                "scores": match_result["match_scores"],
-                "recommendation": match_result["recommendation"],
-                "top_matching_skills": ["Python", "JavaScript", "API Development"]
-            },
-            "optimization": {
-                **optimization_result,
-                "improvement_summary": {
-                    "original_words": len(resume_text.split()),
-                    "optimized_words": len(optimization_result["optimized_resume"].split()),
-                    "keywords_improvement": len(optimization_result.get("keywords_added", [])),
-                    "estimated_callback_improvement": optimization_result.get("ats_score_improvement", "+25%")
-                }
-            },
-            "next_steps": [
-                "Review the optimized resume for accuracy",
-                "Customize further for specific companies",
-                "Test with ATS scanners if possible",
-                "Track application success rates"
-            ]
-        }
-        
-        print("🎉 Optimization completed successfully!")
-        return JSONResponse(content=response)
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        print(f"❌ Unexpected error: {e}")
-        raise HTTPException(status_code=500, detail=f"Processing error: {str(e)}")
 
-@app.post("/api/ai/download-optimized-resume")
-async def download_optimized_resume(
-    optimized_text: str = Form(...),
-    filename: str = Form(default="optimized_resume.txt")
-):
-    """Download optimized resume as text file"""
+############################
+# Mount Modular Routers
+############################
+def mount_routers():
+    """Mount routers once to prevent duplicate mounting"""
+    global _INITIALIZATION_DONE
+
     try:
-        with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.txt', encoding='utf-8') as temp_file:
-            temp_file.write(optimized_text)
-            temp_file_path = temp_file.name
-        
-        return FileResponse(
-            temp_file_path,
-            filename=filename,
-            media_type='text/plain'
-        )
-        
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Download failed: {str(e)}")
+        from app.routers import ai_routes as _ai_routes
+        app.include_router(_ai_routes.router)
+        logger.info("🔗 Mounted modular AI router /api/ai/*")
+    except Exception as _r_err:
+        logger.error(f"⚠️ Failed to mount modular AI router: {_r_err}")
+        logger.error(f"   Error details: {type(_r_err).__name__}: {_r_err}")
+
+    try:
+        from app.routers import metrics_routes as _metrics_routes
+        app.include_router(_metrics_routes.router)
+        logger.info("🔗 Mounted metrics router /api/metrics/*")
+    except Exception as _m_err:
+        logger.error(f"⚠️ Failed to mount metrics router: {_m_err}")
+        logger.error(f"   Error details: {type(_m_err).__name__}: {_m_err}")
+
+# Only mount routers if running as main (not during import)
+if __name__ == "__main__":
+    mount_routers()
+
+## Legacy inlined AI endpoints removed in favor of modular router (app/routers/ai_routes.py)
 
 # Keep existing endpoints
 @app.get("/api/dashboard")
@@ -392,15 +357,53 @@ async def get_applications():
     return {"applications": []}
 
 if __name__ == "__main__":
-    import uvicorn
     print("=" * 50)
     print("🚀 RECRUITLY AI API STARTING")
     print("=" * 50)
-    print(f"🌐 Server: http://localhost:8000")
-    print(f"📚 API Docs: http://localhost:8000/docs")
-    print(f"🤖 AI Mode: {'Enhanced AI Pipeline' if ENHANCED_AI_AVAILABLE else 'Basic AI' if OPENAI_AVAILABLE else 'Mock/Demo'}")
-    print(f"🔑 OpenAI Key: {'Configured' if os.getenv('OPENAI_API_KEY') else 'Not Set'}")
-    print(f"⚡ Enhancement: {'Available' if ENHANCED_AI_AVAILABLE else 'Not Available'}")
+    print("🌐 Server: http://localhost:8000")
+    print("📚 API Docs: http://localhost:8000/docs")
+    print("🔧 Input Validation: ENABLED")
+    print("🛡️ Error Handling: ENHANCED")
+    print("📊 Request Logging: ENABLED")
     print("=" * 50)
-    
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+
+    # Configure uvicorn with enhanced logging
+    uvicorn.run(
+        "main:app",
+        host="0.0.0.0",
+        port=8000,
+        reload=True,
+        log_level="info",
+        access_log=True,
+        use_colors=True,
+        reload_excludes=["*.pyc", "__pycache__", "*.log"],
+        log_config={
+            "version": 1,
+            "disable_existing_loggers": False,
+            "formatters": {
+                "default": {
+                    "format": "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+                },
+                "access": {
+                    "format": "%(asctime)s - %(levelname)s - %(message)s",
+                },
+            },
+            "handlers": {
+                "default": {
+                    "formatter": "default",
+                    "class": "logging.StreamHandler",
+                    "stream": "ext://sys.stdout",
+                },
+                "access": {
+                    "formatter": "access",
+                    "class": "logging.StreamHandler",
+                    "stream": "ext://sys.stdout",
+                },
+            },
+            "loggers": {
+                "uvicorn": {"handlers": ["default"], "level": "INFO"},
+                "uvicorn.error": {"level": "INFO"},
+                "uvicorn.access": {"handlers": ["access"], "level": "INFO", "propagate": False},
+            },
+        }
+    )
