@@ -11,17 +11,17 @@ function Write-Banner {
 
 function Test-AugmentIntegration {
     Write-Banner "Testing Augment Integration"
-    
+
     # Check if context files exist
     $contextFiles = @(
         ".augment/MASTER_CONTEXT.md",
-        ".augment/LEARNING_STRATEGY.md", 
+        ".augment/LEARNING_STRATEGY.md",
         ".augment/ARCHITECTURE.md",
         ".augment/ROADMAP.md",
         "docs/PRODUCT_VISION.md",
         "docs/AI_OPTIMIZATION_PLAN.md"
     )
-    
+
     $allExist = $true
     foreach ($file in $contextFiles) {
         if (Test-Path $file) {
@@ -31,7 +31,7 @@ function Test-AugmentIntegration {
             $allExist = $false
         }
     }
-    
+
     # Check VS Code settings
     if (Test-Path ".vscode/settings.json") {
         $settings = Get-Content ".vscode/settings.json" -Raw
@@ -42,7 +42,7 @@ function Test-AugmentIntegration {
             $allExist = $false
         }
     }
-    
+
     # Check context tools
     if (Test-Path ".vscode/context-tools/update-augment-context.js") {
         Write-Host "✅ Augment context updater found" -ForegroundColor Green
@@ -50,24 +50,24 @@ function Test-AugmentIntegration {
         Write-Host "❌ Augment context updater missing" -ForegroundColor Red
         $allExist = $false
     }
-    
+
     return $allExist
 }
 
 function Start-AugmentSession {
     Write-Banner "Starting Augment Session"
-    
+
     # Update context
     Write-Host "🔄 Updating context..." -ForegroundColor Yellow
     node .vscode/context-tools/update-augment-context.js
-    
+
     # Generate session prompt
     $prompt = @"
 # 🤖 Recruitly Augment Session Started
 
 ## Context Loaded
 ✅ Master Context: Strategic overview and priorities
-✅ Learning Strategy: Self-improving AI system plan  
+✅ Learning Strategy: Self-improving AI system plan
 ✅ Architecture: Technical implementation details
 ✅ Roadmap: Phase-by-phase execution plan
 ✅ Product Vision: 10K user goal and market strategy
@@ -80,20 +80,20 @@ function Start-AugmentSession {
 
 ## Immediate Priorities
 1. 🔧 Fix OpenAI API key configuration
-2. 🔧 Resolve numpy compatibility issue  
+2. 🔧 Resolve numpy compatibility issue
 3. 🚀 Deploy to Railway + Netlify
 4. 👥 Get 20 beta users for validation
 
 ## Decision Framework
 Every decision evaluated on:
 - 📈 Business Impact (toward 10K users)
-- 🧠 Learning Opportunity (AI improvement)  
+- 🧠 Learning Opportunity (AI improvement)
 - 💰 Revenue Potential (monetization)
 - 👤 User Experience (core optimization flow)
 
 ## Working Principles
 - Speed > Perfection
-- Users > Code  
+- Users > Code
 - Revenue > Features
 - Data > Opinions
 - Done > Perfect
@@ -104,7 +104,7 @@ Ready to help with strategic decisions, technical implementation, and execution 
 "@
 
     Write-Host $prompt -ForegroundColor White
-    
+
     # Copy to clipboard if possible
     try {
         $prompt | Set-Clipboard
@@ -117,7 +117,7 @@ Ready to help with strategic decisions, technical implementation, and execution 
 
 function Update-AugmentContext {
     Write-Banner "Updating Augment Context"
-    
+
     # Run context updater
     if (Test-Path ".vscode/context-tools/update-augment-context.js") {
         node .vscode/context-tools/update-augment-context.js
@@ -126,7 +126,7 @@ function Update-AugmentContext {
         Write-Host "❌ Context updater not found" -ForegroundColor Red
         return $false
     }
-    
+
     # Update session context
     $sessionContext = @{
         timestamp = (Get-Date).ToString("yyyy-MM-ddTHH:mm:ssZ")
@@ -149,17 +149,17 @@ function Update-AugmentContext {
             frontend_running = (netstat -an | Select-String ":3000") -ne $null
         }
     }
-    
+
     $sessionPath = ".augment/session-context.json"
     $sessionContext | ConvertTo-Json -Depth 10 | Out-File $sessionPath -Encoding UTF8
     Write-Host "✅ Session context saved to $sessionPath" -ForegroundColor Green
-    
+
     return $true
 }
 
 function Show-AugmentCommands {
     Write-Banner "Augment Integration Commands"
-    
+
     $commands = @"
 ## Quick Start Commands
 
@@ -229,7 +229,7 @@ Focus on moving toward 10,000 user goal.
 switch ($Action.ToLower()) {
     "setup" {
         Write-Banner "Recruitly Augment Agent Setup"
-        
+
         if (Test-AugmentIntegration) {
             Write-Host "`n🎉 Augment integration is ready!" -ForegroundColor Green
             Write-Host "Run: .\scripts\augment-setup.ps1 -Action session" -ForegroundColor Yellow
@@ -237,7 +237,7 @@ switch ($Action.ToLower()) {
             Write-Host "`n❌ Setup incomplete. Check missing files above." -ForegroundColor Red
         }
     }
-    
+
     "test" {
         $result = Test-AugmentIntegration
         if ($result) {
@@ -246,19 +246,19 @@ switch ($Action.ToLower()) {
             Write-Host "`n❌ Some tests failed." -ForegroundColor Red
         }
     }
-    
+
     "update" {
         Update-AugmentContext
     }
-    
+
     "session" {
         Start-AugmentSession
     }
-    
+
     "commands" {
         Show-AugmentCommands
     }
-    
+
     default {
         Write-Host "Usage: .\scripts\augment-setup.ps1 -Action [setup|test|update|session|commands]" -ForegroundColor Yellow
     }

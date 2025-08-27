@@ -13,7 +13,7 @@ function Write-Banner {
 
 function Test-PreCommitInstallation {
     Write-Host "🔍 Checking pre-commit installation..." -ForegroundColor Yellow
-    
+
     try {
         $version = pre-commit --version
         Write-Host "✅ pre-commit found: $version" -ForegroundColor Green
@@ -26,7 +26,7 @@ function Test-PreCommitInstallation {
 
 function Install-PreCommit {
     Write-Banner "Installing Pre-commit Hooks"
-    
+
     # Check if pre-commit is installed
     if (-not (Test-PreCommitInstallation)) {
         Write-Host "📦 Installing pre-commit..." -ForegroundColor Yellow
@@ -38,7 +38,7 @@ function Install-PreCommit {
             return $false
         }
     }
-    
+
     # Install hooks
     Write-Host "🔗 Installing pre-commit hooks..." -ForegroundColor Yellow
     try {
@@ -48,13 +48,13 @@ function Install-PreCommit {
         Write-Host "❌ Failed to install hooks" -ForegroundColor Red
         return $false
     }
-    
+
     # Make scripts executable (Windows doesn't need this, but good practice)
     $scripts = @(
         "scripts/run-backend-tests.bat",
         "scripts/run-frontend-tests.bat"
     )
-    
+
     foreach ($script in $scripts) {
         if (Test-Path $script) {
             Write-Host "✅ Script ready: $script" -ForegroundColor Green
@@ -62,18 +62,18 @@ function Install-PreCommit {
             Write-Host "❌ Script missing: $script" -ForegroundColor Red
         }
     }
-    
+
     return $true
 }
 
 function Test-PreCommitHooks {
     Write-Banner "Testing Pre-commit Hooks"
-    
+
     if (-not (Test-PreCommitInstallation)) {
         Write-Host "❌ pre-commit not installed" -ForegroundColor Red
         return $false
     }
-    
+
     Write-Host "🧪 Running pre-commit on all files..." -ForegroundColor Yellow
     try {
         pre-commit run --all-files
@@ -87,7 +87,7 @@ function Test-PreCommitHooks {
 
 function Uninstall-PreCommit {
     Write-Banner "Uninstalling Pre-commit Hooks"
-    
+
     try {
         pre-commit uninstall
         Write-Host "✅ Pre-commit hooks uninstalled" -ForegroundColor Green
@@ -100,11 +100,11 @@ function Uninstall-PreCommit {
 
 function Show-PreCommitStatus {
     Write-Banner "Pre-commit Status"
-    
+
     # Check installation
     $installed = Test-PreCommitInstallation
     Write-Host "Pre-commit installed: $(if ($installed) { '✅' } else { '❌' })" -ForegroundColor $(if ($installed) { 'Green' } else { 'Red' })
-    
+
     # Check hooks
     if ($installed) {
         try {
@@ -114,21 +114,21 @@ function Show-PreCommitStatus {
             Write-Host "⚠️ Hooks may need configuration" -ForegroundColor Yellow
         }
     }
-    
+
     # Check config file
     if (Test-Path ".pre-commit-config.yaml") {
         Write-Host "✅ Configuration file exists" -ForegroundColor Green
     } else {
         Write-Host "❌ Configuration file missing" -ForegroundColor Red
     }
-    
+
     # Check scripts
     $scripts = @(
         "scripts/run-backend-tests.bat",
         "scripts/run-frontend-tests.bat",
         "scripts/update-context.sh"
     )
-    
+
     Write-Host "`nScript Status:" -ForegroundColor Yellow
     foreach ($script in $scripts) {
         $exists = Test-Path $script

@@ -2,19 +2,19 @@
 param(
     [Parameter(Mandatory=$false, Position=0)]
     [string]$Action,
-    
+
     [Parameter(Mandatory=$false)]
     [string]$Feature,
-    
+
     [Parameter(Mandatory=$false)]
     [string]$Description,
-    
+
     [Parameter(Mandatory=$false)]
     [string[]]$Files,
-    
+
     [Parameter(Mandatory=$false)]
     [string]$Notes,
-    
+
     [Parameter(Mandatory=$false)]
     [string]$Message
 )
@@ -73,23 +73,23 @@ if (-not (Test-Path "scripts/dev-workflow.py")) {
 $pythonArgs = @("scripts/dev-workflow.py", $Action)
 
 # Add parameters
-if ($Feature) { 
+if ($Feature) {
     $pythonArgs += "--feature"
     $pythonArgs += $Feature
 }
-if ($Description) { 
+if ($Description) {
     $pythonArgs += "--description"
     $pythonArgs += $Description
 }
-if ($Files) { 
+if ($Files) {
     $pythonArgs += "--files"
     $pythonArgs += ($Files -join ",")
 }
-if ($Notes) { 
+if ($Notes) {
     $pythonArgs += "--notes"
     $pythonArgs += $Notes
 }
-if ($Message) { 
+if ($Message) {
     $pythonArgs += "--message"
     $pythonArgs += $Message
 }
@@ -100,7 +100,7 @@ try {
     # Execute Python script
     & python $pythonArgs
     $exitCode = $LASTEXITCODE
-    
+
     if ($exitCode -eq 0) {
         Write-Success "Command completed successfully"
     } else {

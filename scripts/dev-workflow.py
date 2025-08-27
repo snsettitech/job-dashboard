@@ -28,11 +28,11 @@ class RecruitlyDevWorkflow:
         self.docs_dir.mkdir(exist_ok=True)
         self.scripts_dir.mkdir(exist_ok=True)
         self.augment_dir.mkdir(exist_ok=True)
-        
+
     def start_feature(self, feature_name: str, description: str) -> Dict:
         """Start a new feature development cycle"""
         print(f"🚀 Starting feature: {feature_name}")
-        
+
         feature_data = {
             "name": feature_name,
             "description": description,
@@ -42,30 +42,30 @@ class RecruitlyDevWorkflow:
             "tests_added": [],
             "documentation_updated": []
         }
-        
+
         # Load existing features
         features = self._load_feature_log()
         features[feature_name] = feature_data
         self._save_feature_log(features)
-        
+
         # Create feature branch
         self._run_git_command(f"checkout -b feature/{feature_name}")
-        
+
         print(f"✅ Feature '{feature_name}' started")
         print(f"📝 Branch: feature/{feature_name}")
         return feature_data
-    
-    def update_feature_progress(self, feature_name: str, files_changed: List[str] = None, 
+
+    def update_feature_progress(self, feature_name: str, files_changed: List[str] = None,
                               tests_added: List[str] = None, notes: str = None):
         """Update feature development progress"""
         features = self._load_feature_log()
-        
+
         if feature_name not in features:
             print(f"❌ Feature '{feature_name}' not found")
             return
-        
+
         feature = features[feature_name]
-        
+
         if files_changed:
             feature["files_changed"].extend(files_changed)
         if tests_added:
@@ -75,12 +75,12 @@ class RecruitlyDevWorkflow:
                 "timestamp": datetime.datetime.now().isoformat(),
                 "note": notes
             })
-        
+
         feature["last_updated"] = datetime.datetime.now().isoformat()
-        
+
         self._save_feature_log(features)
         print(f"📝 Updated progress for feature: {feature_name}")
-    
+
     def complete_feature(self, feature_name: str, commit_message: str = None) -> bool:
         """Complete feature development and trigger automated workflow"""
         print(f"🎯 Completing feature: {feature_name}")
@@ -127,43 +127,43 @@ class RecruitlyDevWorkflow:
         print(f"🔄 Changes committed and pushed to GitHub")
 
         return True
-    
+
     def _run_tests(self) -> bool:
         """Run the test suite"""
         print("🧪 Running tests...")
-        
+
         # Backend tests
         backend_result = self._run_command(
-            "python -m pytest", 
+            "python -m pytest",
             cwd=self.project_root / "backend"
         )
-        
+
         # Frontend tests
         frontend_result = self._run_command(
-            "npm test -- --watchAll=false", 
+            "npm test -- --watchAll=false",
             cwd=self.project_root / "frontend"
         )
-        
+
         if backend_result and frontend_result:
             print("✅ All tests passed")
             return True
         else:
             print("❌ Some tests failed")
             return False
-    
+
     def _update_context_documentation(self, feature: Dict):
         """Update the development context documentation"""
         print("📝 Updating context documentation...")
-        
+
         # Read current context
         if self.context_file.exists():
             content = self.context_file.read_text()
         else:
             content = "# Development Context\n\n"
-        
+
         # Add feature to completed section
         feature_entry = f"- [x] {feature['name']}: {feature['description']}\n"
-        
+
         # Update the completed features section
         if "### ✅ Completed (Working 100%)" in content:
             # Find the section and add the feature
@@ -173,30 +173,30 @@ class RecruitlyDevWorkflow:
                     lines.insert(i, feature_entry)
                     break
             content = '\n'.join(lines)
-        
+
         # Update last modified timestamp
         content = content.replace(
             "**Last Updated**: 2025-08-26",
             f"**Last Updated**: {datetime.datetime.now().strftime('%Y-%m-%d')}"
         )
-        
+
         self.context_file.write_text(content)
         print("✅ Context documentation updated")
-    
+
     def _update_readme_status(self, feature_name: str):
         """Update README.md with latest status"""
         readme_path = self.project_root / "README.md"
         if not readme_path.exists():
             return
-        
+
         content = readme_path.read_text()
-        
+
         # Update last updated timestamp
         content = content.replace(
             "**Last Updated**: 2025-08-26",
             f"**Last Updated**: {datetime.datetime.now().strftime('%Y-%m-%d')}"
         )
-        
+
         readme_path.write_text(content)
         print("✅ README.md updated")
 
@@ -264,49 +264,49 @@ class RecruitlyDevWorkflow:
 
         self.roadmap_file.write_text(content)
         print("✅ Roadmap updated")
-    
+
     def _commit_and_push(self, feature_name: str, commit_message: str) -> bool:
         """Commit changes and push to GitHub"""
         print("📤 Committing and pushing changes...")
-        
+
         try:
             # Add all changes
             self._run_git_command("add .")
-            
+
             # Commit with message
             self._run_git_command(f'commit -m "{commit_message}"')
-            
+
             # Push to origin
             self._run_git_command(f"push origin feature/{feature_name}")
-            
+
             # Switch back to main and merge
             self._run_git_command("checkout main")
             self._run_git_command(f"merge feature/{feature_name}")
             self._run_git_command("push origin main")
-            
+
             # Clean up feature branch
             self._run_git_command(f"branch -d feature/{feature_name}")
             self._run_git_command(f"push origin --delete feature/{feature_name}")
-            
+
             return True
-            
+
         except subprocess.CalledProcessError as e:
             print(f"❌ Git operation failed: {e}")
             return False
-    
+
     def _run_git_command(self, command: str):
         """Run a git command"""
         full_command = f"git {command}"
         return self._run_command(full_command)
-    
+
     def _run_command(self, command: str, cwd: Path = None) -> bool:
         """Run a shell command"""
         try:
             result = subprocess.run(
-                command, 
-                shell=True, 
+                command,
+                shell=True,
                 cwd=cwd or self.project_root,
-                capture_output=True, 
+                capture_output=True,
                 text=True,
                 check=True
             )
@@ -315,13 +315,13 @@ class RecruitlyDevWorkflow:
             print(f"Command failed: {command}")
             print(f"Error: {e.stderr}")
             return False
-    
+
     def _load_feature_log(self) -> Dict:
         """Load the feature log"""
         if self.feature_log.exists():
             return json.loads(self.feature_log.read_text())
         return {}
-    
+
     def _save_feature_log(self, features: Dict):
         """Save the feature log"""
         self.feature_log.write_text(json.dumps(features, indent=2))

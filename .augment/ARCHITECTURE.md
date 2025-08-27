@@ -64,7 +64,7 @@ Stage 1: Gap Analysis
 ├── Skills gap identification
 └── ATS compatibility scoring
 
-Stage 2: Strategic Rewriting  
+Stage 2: Strategic Rewriting
 ├── Content enhancement
 ├── Keyword optimization
 ├── Format standardization
@@ -77,7 +77,7 @@ Stage 3: Quality Validation
 └── Iteration if score < 8.0
 ```
 
-**Current Issues**: 
+**Current Issues**:
 - ❌ OpenAI API key configuration
 - ❌ Numpy compatibility (ComplexWarning import error)
 - ❌ Router mounting failure
@@ -180,8 +180,8 @@ async def rate_limit_middleware(request: Request, call_next):
 @cache(expire=3600)
 def get_job_embeddings(job_description_hash):
     # Cache job description embeddings
-    
-@cache(expire=86400)  
+
+@cache(expire=86400)
 def get_industry_patterns(industry):
     # Cache industry-specific optimization patterns
 ```
@@ -208,8 +208,8 @@ services:
     env:
       - OPENAI_API_KEY
       - DATABASE_URL
-      
-# Netlify frontend deployment  
+
+# Netlify frontend deployment
 build:
   command: npm run build
   publish: build/
@@ -250,7 +250,7 @@ build:
 
 ---
 
-**Architecture Version**: 1.0  
-**Last Updated**: 2025-08-27  
-**Next Review**: After AI issues resolution  
+**Architecture Version**: 1.0
+**Last Updated**: 2025-08-27
+**Next Review**: After AI issues resolution
 **Status**: Core working, optimization in progress

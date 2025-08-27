@@ -11,7 +11,7 @@
 - Process: ATS scoring, keyword gap analysis, weakness detection
 - Output: Detailed improvement areas with scoring (1-100)
 
-### Stage 2: Transformation Engine  
+### Stage 2: Transformation Engine
 - Input: Analysis results + optimization strategies
 - Process: Language enhancement, keyword integration, impact quantification
 - Output: Optimized resume with strategic improvements
@@ -43,7 +43,7 @@
 - Lucide React icons only
 - Error boundaries around AI operations
 
-### FastAPI Backend  
+### FastAPI Backend
 - Async/await for all endpoints
 - Pydantic models for request/response validation
 - Dependency injection pattern

@@ -14,7 +14,7 @@ function Write-Banner {
 
 function Start-BackendService {
     Write-Host "🚀 Starting backend service..." -ForegroundColor Yellow
-    
+
     Push-Location backend
     try {
         # Check if virtual environment exists
@@ -22,11 +22,11 @@ function Start-BackendService {
             Write-Host "🐍 Activating virtual environment..." -ForegroundColor Yellow
             & venv/Scripts/activate.ps1
         }
-        
+
         # Start backend in background
         Start-Process -FilePath "python" -ArgumentList "main.py" -WindowStyle Hidden -PassThru
         Write-Host "✅ Backend service started" -ForegroundColor Green
-        
+
         # Wait for backend to be ready
         $maxRetries = 30
         for ($i = 0; $i -lt $maxRetries; $i++) {
@@ -39,7 +39,7 @@ function Start-BackendService {
             } catch {
                 Start-Sleep -Seconds 2
             }
-            
+
             if ($i -eq $maxRetries - 1) {
                 Write-Host "❌ Backend failed to start" -ForegroundColor Red
                 return $false
@@ -48,13 +48,13 @@ function Start-BackendService {
     } finally {
         Pop-Location
     }
-    
+
     return $true
 }
 
 function Start-FrontendService {
     Write-Host "🚀 Starting frontend service..." -ForegroundColor Yellow
-    
+
     Push-Location frontend
     try {
         # Check if node_modules exists
@@ -62,11 +62,11 @@ function Start-FrontendService {
             Write-Host "📦 Installing frontend dependencies..." -ForegroundColor Yellow
             npm install
         }
-        
+
         # Start frontend in background
         Start-Process -FilePath "npm" -ArgumentList "start" -WindowStyle Hidden -PassThru
         Write-Host "✅ Frontend service started" -ForegroundColor Green
-        
+
         # Wait for frontend to be ready
         $maxRetries = 30
         for ($i = 0; $i -lt $maxRetries; $i++) {
@@ -79,7 +79,7 @@ function Start-FrontendService {
             } catch {
                 Start-Sleep -Seconds 2
             }
-            
+
             if ($i -eq $maxRetries - 1) {
                 Write-Host "❌ Frontend failed to start" -ForegroundColor Red
                 return $false
@@ -88,18 +88,18 @@ function Start-FrontendService {
     } finally {
         Pop-Location
     }
-    
+
     return $true
 }
 
 function Stop-Services {
     Write-Host "🛑 Stopping services..." -ForegroundColor Yellow
-    
+
     # Stop processes running on ports 8000 and 3000
-    $processes = Get-NetTCPConnection -LocalPort 8000, 3000 -ErrorAction SilentlyContinue | 
-                 Select-Object -ExpandProperty OwningProcess | 
+    $processes = Get-NetTCPConnection -LocalPort 8000, 3000 -ErrorAction SilentlyContinue |
+                 Select-Object -ExpandProperty OwningProcess |
                  Get-Process -Id { $_ } -ErrorAction SilentlyContinue
-    
+
     foreach ($process in $processes) {
         try {
             Stop-Process -Id $process.Id -Force
@@ -112,17 +112,17 @@ function Stop-Services {
 
 function Run-IntegrationTests {
     Write-Banner "Running Integration Tests"
-    
+
     # Ensure we're in the project root
     if (-not (Test-Path "tests/integration")) {
         Write-Host "❌ Integration tests directory not found" -ForegroundColor Red
         return $false
     }
-    
+
     # Install test dependencies
     Write-Host "📦 Installing test dependencies..." -ForegroundColor Yellow
     pip install pytest pytest-asyncio httpx
-    
+
     # Run integration tests
     Write-Host "🧪 Running integration tests..." -ForegroundColor Yellow
     try {
@@ -131,7 +131,7 @@ function Run-IntegrationTests {
         } else {
             python -m pytest tests/integration/ -v --tb=short -k $TestPattern
         }
-        
+
         $exitCode = $LASTEXITCODE
         if ($exitCode -eq 0) {
             Write-Host "✅ All integration tests passed!" -ForegroundColor Green
@@ -161,14 +161,14 @@ if ($TestOnly) {
 
 if ($StartServices) {
     Write-Banner "Starting Services"
-    
+
     # Start backend
     $backendStarted = Start-BackendService
     if (-not $backendStarted) {
         Write-Host "❌ Failed to start backend" -ForegroundColor Red
         exit 1
     }
-    
+
     # Start frontend
     $frontendStarted = Start-FrontendService
     if (-not $frontendStarted) {
@@ -176,17 +176,17 @@ if ($StartServices) {
         Stop-Services
         exit 1
     }
-    
+
     Write-Host "`n🎉 All services started successfully!" -ForegroundColor Green
     Write-Host "Backend: http://localhost:8000" -ForegroundColor Cyan
     Write-Host "Frontend: http://localhost:3000" -ForegroundColor Cyan
-    
+
     # Run tests
     $testSuccess = Run-IntegrationTests
-    
+
     # Stop services
     Stop-Services
-    
+
     exit $(if ($testSuccess) { 0 } else { 1 })
 } else {
     # Show usage
@@ -195,7 +195,7 @@ if ($StartServices) {
     Write-Host "  .\scripts\run-integration-tests.ps1 -TestOnly         # Run tests only (services must be running)" -ForegroundColor White
     Write-Host "  .\scripts\run-integration-tests.ps1 -StopServices     # Stop all services" -ForegroundColor White
     Write-Host "  .\scripts\run-integration-tests.ps1 -TestPattern 'workflow'  # Run specific tests" -ForegroundColor White
-    
+
     Write-Host "`nEXAMPLES:" -ForegroundColor Yellow
     Write-Host "  # Full integration test run" -ForegroundColor Green
     Write-Host "  .\scripts\run-integration-tests.ps1 -StartServices" -ForegroundColor White

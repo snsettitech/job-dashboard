@@ -9,13 +9,13 @@ class RecruitlyContextSync {
 
   async updateSessionContext() {
     console.log('🧠 Updating Recruitly session context...');
-    
+
     try {
       // 1. Get current git context
       const gitBranch = execSync('git branch --show-current').toString().trim();
       const gitStatus = execSync('git status --porcelain').toString();
       const recentCommits = execSync('git log --oneline -5').toString();
-      
+
       // 2. Get modified files with context
       const modifiedFiles = gitStatus
         .split('\n')
@@ -26,15 +26,15 @@ class RecruitlyContextSync {
           return { status, file };
         });
 
-      // 3. Analyze file relationships  
+      // 3. Analyze file relationships
       const coreFiles = [
         'src/App.tsx',
-        'src/components/ResumeOptimizer.tsx', 
+        'src/components/ResumeOptimizer.tsx',
         'backend/main.py',
         'backend/app/services/enhanced_ai_service.py'
       ];
-      
-      const coreFilesModified = modifiedFiles.filter(f => 
+
+      const coreFilesModified = modifiedFiles.filter(f =>
         coreFiles.some(core => f.file.includes(core))
       );
 
@@ -71,9 +71,9 @@ class RecruitlyContextSync {
       console.log('✅ Session context updated successfully!');
       console.log(`📊 Focus: ${sessionContext.activeContext.focusArea}`);
       console.log(`📝 Files: ${modifiedFiles.length} modified`);
-      
+
       return sessionContext;
-      
+
     } catch (error) {
       console.error('❌ Context sync failed:', error.message);
       return null;
@@ -82,13 +82,13 @@ class RecruitlyContextSync {
 
   determineFocusArea(modifiedFiles) {
     const files = modifiedFiles.map(f => f.file.toLowerCase());
-    
+
     if (files.some(f => f.includes('enhanced_ai_service'))) return 'AI Pipeline';
     if (files.some(f => f.includes('resumeoptimizer'))) return 'Core UI';
     if (files.some(f => f.includes('app.tsx'))) return 'Architecture';
     if (files.some(f => f.includes('main.py'))) return 'Backend API';
     if (files.some(f => f.includes('package.json'))) return 'Dependencies';
-    
+
     return 'General Development';
   }
 
@@ -105,7 +105,7 @@ class RecruitlyContextSync {
     if (files.some(f => f.includes('ai_service'))) {
       suggestions.push('Monitor OpenAI token usage and cost implications');
     }
-    
+
     return suggestions;
   }
 

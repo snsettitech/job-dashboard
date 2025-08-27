@@ -48,10 +48,10 @@ if (-not $Install -and -not $Test) {
     Write-Host "`nUSAGE:" -ForegroundColor Yellow
     Write-Host "  .\scripts\setup-precommit-simple.ps1 -Install    # Install pre-commit hooks" -ForegroundColor White
     Write-Host "  .\scripts\setup-precommit-simple.ps1 -Test       # Test hooks" -ForegroundColor White
-    
+
     # Show status
     Write-Host "`nSTATUS:" -ForegroundColor Yellow
-    
+
     # Check if pre-commit is installed
     try {
         $version = pre-commit --version
@@ -59,7 +59,7 @@ if (-not $Install -and -not $Test) {
     } catch {
         Write-Host "❌ pre-commit not installed" -ForegroundColor Red
     }
-    
+
     # Check config file
     if (Test-Path ".pre-commit-config.yaml") {
         Write-Host "✅ Configuration file exists" -ForegroundColor Green

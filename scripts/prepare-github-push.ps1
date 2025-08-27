@@ -13,14 +13,14 @@ function Write-Banner {
 
 function Test-LocalSystem {
     Write-Banner "Testing Local System"
-    
+
     $allPassed = $true
-    
+
     # Test backend
     Write-Host "🔍 Testing backend..." -ForegroundColor Yellow
     try {
         Push-Location backend
-        
+
         # Test basic imports
         $testResult = python -c "
 import sys
@@ -49,14 +49,14 @@ except Exception as e:
 
 print('✅ All critical imports successful')
 "
-        
+
         if ($LASTEXITCODE -eq 0) {
             Write-Host "✅ Backend imports working" -ForegroundColor Green
         } else {
             Write-Host "❌ Backend import issues" -ForegroundColor Red
             $allPassed = $false
         }
-        
+
         # Test basic pytest
         Write-Host "🧪 Running backend tests..." -ForegroundColor Yellow
         python -m pytest tests/test_basic.py -v --tb=short
@@ -65,19 +65,19 @@ print('✅ All critical imports successful')
         } else {
             Write-Host "⚠️ Some backend tests failing (acceptable for now)" -ForegroundColor Yellow
         }
-        
+
         Pop-Location
     } catch {
         Write-Host "❌ Backend testing failed: $_" -ForegroundColor Red
         $allPassed = $false
         Pop-Location
     }
-    
+
     # Test frontend
     Write-Host "`n🔍 Testing frontend..." -ForegroundColor Yellow
     try {
         Push-Location frontend
-        
+
         # Check if node_modules exists
         if (Test-Path "node_modules") {
             Write-Host "✅ Frontend dependencies installed" -ForegroundColor Green
@@ -85,7 +85,7 @@ print('✅ All critical imports successful')
             Write-Host "❌ Frontend dependencies missing" -ForegroundColor Red
             $allPassed = $false
         }
-        
+
         # Test build
         Write-Host "🏗️ Testing frontend build..." -ForegroundColor Yellow
         npm run build --silent
@@ -95,24 +95,24 @@ print('✅ All critical imports successful')
             Write-Host "❌ Frontend build failed" -ForegroundColor Red
             $allPassed = $false
         }
-        
+
         Pop-Location
     } catch {
         Write-Host "❌ Frontend testing failed: $_" -ForegroundColor Red
         $allPassed = $false
         Pop-Location
     }
-    
+
     return $allPassed
 }
 
 function Test-ContextSystem {
     Write-Banner "Testing Context Management System"
-    
+
     $contextFiles = @(
         ".augment/MASTER_CONTEXT.md",
         ".augment/LEARNING_STRATEGY.md",
-        ".augment/ARCHITECTURE.md", 
+        ".augment/ARCHITECTURE.md",
         ".augment/ROADMAP.md",
         "docs/PRODUCT_VISION.md",
         "docs/AI_OPTIMIZATION_PLAN.md",
@@ -120,7 +120,7 @@ function Test-ContextSystem {
         ".vscode/context-tools/update-augment-context.js",
         "scripts/augment-setup.ps1"
     )
-    
+
     $allExist = $true
     foreach ($file in $contextFiles) {
         if (Test-Path $file) {
@@ -130,7 +130,7 @@ function Test-ContextSystem {
             $allExist = $false
         }
     }
-    
+
     # Test context updater
     if (Test-Path ".vscode/context-tools/update-augment-context.js") {
         Write-Host "`n🔄 Testing context updater..." -ForegroundColor Yellow
@@ -142,37 +142,37 @@ function Test-ContextSystem {
             $allExist = $false
         }
     }
-    
+
     return $allExist
 }
 
 function Prepare-GitCommit {
     Write-Banner "Preparing Git Commit"
-    
+
     # Check git status
     $gitStatus = git status --porcelain
     if (-not $gitStatus) {
         Write-Host "✅ No changes to commit" -ForegroundColor Green
         return $true
     }
-    
+
     Write-Host "📝 Files to be committed:" -ForegroundColor Yellow
     git status --short
-    
+
     if ($DryRun) {
         Write-Host "`n🔍 DRY RUN - Would commit with message:" -ForegroundColor Cyan
         Write-Host "   $CommitMessage" -ForegroundColor White
         return $true
     }
-    
+
     # Add all files
     Write-Host "`n📦 Adding files to git..." -ForegroundColor Yellow
     git add .
-    
+
     # Create commit
     Write-Host "💾 Creating commit..." -ForegroundColor Yellow
     git commit -m $CommitMessage
-    
+
     if ($LASTEXITCODE -eq 0) {
         Write-Host "✅ Commit created successfully" -ForegroundColor Green
         return $true
@@ -184,7 +184,7 @@ function Prepare-GitCommit {
 
 function Push-ToGitHub {
     Write-Banner "Pushing to GitHub"
-    
+
     # Check if remote exists
     $remoteUrl = git remote get-url origin 2>$null
     if (-not $remoteUrl) {
@@ -192,23 +192,23 @@ function Push-ToGitHub {
         Write-Host "Run: git remote add origin https://github.com/snsettitech/job-dashboard.git" -ForegroundColor Yellow
         return $false
     }
-    
+
     Write-Host "🌐 Remote URL: $remoteUrl" -ForegroundColor Cyan
-    
+
     if ($DryRun) {
         Write-Host "`n🔍 DRY RUN - Would push to GitHub" -ForegroundColor Cyan
         return $true
     }
-    
+
     # Push to GitHub
     Write-Host "🚀 Pushing to GitHub..." -ForegroundColor Yellow
-    
+
     if ($Force) {
         git push origin main --force
     } else {
         git push origin main
     }
-    
+
     if ($LASTEXITCODE -eq 0) {
         Write-Host "✅ Successfully pushed to GitHub!" -ForegroundColor Green
         return $true
@@ -221,10 +221,10 @@ function Push-ToGitHub {
 
 function Show-Summary {
     param([bool]$Success)
-    
+
     if ($Success) {
         Write-Banner "🎉 SUCCESS - Ready for GitHub!"
-        
+
         Write-Host @"
 ✅ All systems tested and working
 ✅ Context management system complete
@@ -248,7 +248,7 @@ function Show-Summary {
 "@ -ForegroundColor Green
     } else {
         Write-Banner "❌ Issues Found"
-        
+
         Write-Host @"
 Some issues were found that need to be resolved:
 
@@ -280,10 +280,10 @@ $contextTest = Test-ContextSystem
 
 if ($systemTest -and $contextTest) {
     Write-Host "`n✅ All tests passed!" -ForegroundColor Green
-    
+
     # Prepare commit
     $commitSuccess = Prepare-GitCommit
-    
+
     if ($commitSuccess) {
         # Push to GitHub
         $pushSuccess = Push-ToGitHub

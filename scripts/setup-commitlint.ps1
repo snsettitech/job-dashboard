@@ -36,16 +36,16 @@ try {
     if (-not (Test-Path ".git/hooks")) {
         New-Item -ItemType Directory -Path ".git/hooks" -Force
     }
-    
+
     # Create commit-msg hook
     $hookContent = @"
 #!/bin/sh
 # Commitlint hook
 npx --no-install commitlint --edit `$1
 "@
-    
+
     Set-Content -Path ".git/hooks/commit-msg" -Value $hookContent -Encoding UTF8
-    
+
     Write-Host "✅ Git commit-msg hook created" -ForegroundColor Green
 } catch {
     Write-Host "❌ Failed to create git hook" -ForegroundColor Red
