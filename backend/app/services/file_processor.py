@@ -2,7 +2,7 @@
 import fitz  # PyMuPDF for PDF processing
 from docx import Document  # python-docx for DOCX processing
 import io
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 import re
 import logging
 
