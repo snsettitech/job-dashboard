@@ -73,6 +73,45 @@ const ResumeOptimizer: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'upload' | 'results'>('upload');
 
+  // Validate and sanitize API response
+  const validateAndSanitizeResult = (data: any): OptimizationResult => {
+    return {
+      status: data.status || 'success',
+      processing_date: data.processing_date || new Date().toISOString(),
+      file_info: data.file_info || { filename: 'unknown', size: 0, type: 'unknown' },
+      original_resume: {
+        text: data.original_resume?.text || '',
+        word_count: data.original_resume?.word_count || 0,
+        structured_info: data.original_resume?.structured_info || {}
+      },
+      job_match_analysis: {
+        scores: {
+          overall: data.job_match_analysis?.scores?.overall || 0,
+          skills: data.job_match_analysis?.scores?.skills || 0,
+          experience: data.job_match_analysis?.scores?.experience || 0,
+          location: data.job_match_analysis?.scores?.location || 0,
+          salary: data.job_match_analysis?.scores?.salary || 0
+        },
+        recommendation: data.job_match_analysis?.recommendation || 'No recommendation available'
+      },
+      optimization: {
+        optimized_resume: data.optimization?.optimized_resume || '',
+        improvements_made: data.optimization?.improvements_made || [],
+        keywords_added: data.optimization?.keywords_added || [],
+        ats_score_improvement: data.optimization?.ats_score_improvement || 'N/A',
+        match_score_prediction: data.optimization?.match_score_prediction || 0,
+        optimization_summary: data.optimization?.optimization_summary || '',
+        improvement_summary: {
+          original_words: data.optimization?.improvement_summary?.original_words || 0,
+          optimized_words: data.optimization?.improvement_summary?.optimized_words || 0,
+          keywords_improvement: data.optimization?.improvement_summary?.keywords_improvement || 0,
+          estimated_callback_improvement: data.optimization?.improvement_summary?.estimated_callback_improvement || 'N/A'
+        }
+      },
+      next_steps: data.next_steps || []
+    };
+  };
+
   const handleFileChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = event.target.files?.[0];
     if (selectedFile) {
@@ -125,7 +164,8 @@ const ResumeOptimizer: React.FC = () => {
         throw new Error(errorData.detail || 'Optimization failed');
       }
 
-      const resultData: OptimizationResult = await response.json();
+      const rawData = await response.json();
+      const resultData = validateAndSanitizeResult(rawData);
       setResult(resultData);
       setActiveTab('results');
       
@@ -142,8 +182,8 @@ const ResumeOptimizer: React.FC = () => {
 
     try {
       const formData = new FormData();
-      formData.append('optimized_text', result.optimization.optimized_resume);
-      formData.append('filename', `optimized_${result.file_info.filename.replace(/\.[^/.]+$/, '')}.txt`);
+      formData.append('optimized_text', result.optimization?.optimized_resume || '');
+      formData.append('filename', `optimized_${result.file_info?.filename?.replace(/\.[^/.]+$/, '') || 'resume'}.txt`);
 
       const response = await fetch('http://localhost:8000/api/ai/download-optimized-resume', {
         method: 'POST',
@@ -155,7 +195,7 @@ const ResumeOptimizer: React.FC = () => {
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `optimized_${result.file_info.filename.replace(/\.[^/.]+$/, '')}.txt`;
+        a.download = `optimized_${result.file_info?.filename?.replace(/\.[^/.]+$/, '') || 'resume'}.txt`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
@@ -335,7 +375,9 @@ const ResumeOptimizer: React.FC = () => {
                 <div>
                   <p className="text-green-100">Match Score</p>
                   <p className="text-3xl font-bold">
-                    {Math.round(result.job_match_analysis.scores.overall * 100)}%
+                    {result.job_match_analysis?.scores?.overall
+                      ? Math.round(result.job_match_analysis.scores.overall * 100)
+                      : 'N/A'}%
                   </p>
                 </div>
                 <Target className="h-10 w-10 text-green-200" />
@@ -347,7 +389,7 @@ const ResumeOptimizer: React.FC = () => {
                 <div>
                   <p className="text-blue-100">ATS Improvement</p>
                   <p className="text-3xl font-bold">
-                    {result.optimization.ats_score_improvement}
+                    {result.optimization?.ats_score_improvement || 'N/A'}
                   </p>
                 </div>
                 <TrendingUp className="h-10 w-10 text-blue-200" />
@@ -359,7 +401,7 @@ const ResumeOptimizer: React.FC = () => {
                 <div>
                   <p className="text-purple-100">Keywords Added</p>
                   <p className="text-3xl font-bold">
-                    {result.optimization.keywords_added.length}
+                    {result.optimization?.keywords_added?.length || 0}
                   </p>
                 </div>
                 <Star className="h-10 w-10 text-purple-200" />
@@ -376,7 +418,7 @@ const ResumeOptimizer: React.FC = () => {
                 </h3>
                 <div className="flex space-x-2">
                   <button
-                    onClick={() => copyToClipboard(result.optimization.optimized_resume)}
+                    onClick={() => copyToClipboard(result.optimization?.optimized_resume || '')}
                     className="px-3 py-2 text-sm bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors flex items-center"
                   >
                     <Copy className="h-4 w-4 mr-1" />
@@ -396,7 +438,7 @@ const ResumeOptimizer: React.FC = () => {
             <div className="p-6">
               <div className="bg-gray-50 rounded-lg p-4 max-h-96 overflow-y-auto">
                 <pre className="whitespace-pre-wrap text-sm text-gray-800 font-mono">
-                  {result.optimization.optimized_resume}
+                  {result.optimization?.optimized_resume || 'No optimized resume available'}
                 </pre>
               </div>
             </div>
@@ -410,13 +452,19 @@ const ResumeOptimizer: React.FC = () => {
                 Improvements Made
               </h3>
               <ul className="space-y-2">
-                {result.optimization.improvements_made.map((improvement, index) => (
+                {(result.optimization?.improvements_made || []).map((improvement, index) => (
                   <li key={index} className="flex items-start">
                     <ArrowRight className="h-4 w-4 mr-2 mt-0.5 text-green-600 flex-shrink-0" />
                     <span className="text-sm text-gray-700">{improvement}</span>
                   </li>
                 ))}
               </ul>
+
+              {(!result.optimization?.improvements_made || result.optimization.improvements_made.length === 0) && (
+                <p className="text-sm text-gray-500 italic">
+                  No specific improvements were identified for this resume.
+                </p>
+              )}
             </div>
 
             <div className="bg-white rounded-lg shadow p-6">
@@ -425,7 +473,7 @@ const ResumeOptimizer: React.FC = () => {
                 Keywords Added
               </h3>
               <div className="flex flex-wrap gap-2">
-                {result.optimization.keywords_added.map((keyword, index) => (
+                {(result.optimization?.keywords_added || []).map((keyword, index) => (
                   <span
                     key={index}
                     className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium"
@@ -434,8 +482,8 @@ const ResumeOptimizer: React.FC = () => {
                   </span>
                 ))}
               </div>
-              
-              {result.optimization.keywords_added.length === 0 && (
+
+              {(!result.optimization?.keywords_added || result.optimization.keywords_added.length === 0) && (
                 <p className="text-sm text-gray-500 italic">
                   Your resume already contained most relevant keywords for this position.
                 </p>
@@ -449,7 +497,7 @@ const ResumeOptimizer: React.FC = () => {
               🎯 Recommended Next Steps
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {result.next_steps.map((step, index) => (
+              {(result.next_steps || []).map((step, index) => (
                 <div key={index} className="flex items-start">
                   <span className="flex-shrink-0 w-6 h-6 bg-indigo-600 text-white rounded-full flex items-center justify-center text-sm font-medium mr-3">
                     {index + 1}
@@ -458,6 +506,12 @@ const ResumeOptimizer: React.FC = () => {
                 </div>
               ))}
             </div>
+
+            {(!result.next_steps || result.next_steps.length === 0) && (
+              <p className="text-sm text-gray-500 italic">
+                No specific next steps available at this time.
+              </p>
+            )}
           </div>
         </div>
       )}
