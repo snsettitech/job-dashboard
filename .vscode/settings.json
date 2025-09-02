@@ -1,58 +1,139 @@
 {
-  "files.onWillSave": {
-    "updateContext": true
+  // Git Settings
+  "git.enableSmartCommit": true,
+  "git.confirmSync": false,
+  "git.autofetch": true,
+  "git.autofetchPeriod": 180,
+  "git.branchSortOrder": "committerdate",
+  // Editor Settings
+  "editor.formatOnSave": true,
+  "editor.codeActionsOnSave": {
+    "source.fixAll.eslint": "explicit",
+    "source.organizeImports": "explicit"
   },
-
-  "// Augment Agent Configuration": "",
-  "augment.contextFiles": [
-    ".augment/MASTER_CONTEXT.md",
-    ".augment/LEARNING_STRATEGY.md",
-    ".augment/ARCHITECTURE.md",
-    ".augment/ROADMAP.md",
-    "docs/PRODUCT_VISION.md",
-    "docs/AI_OPTIMIZATION_PLAN.md",
-    "docs/DEVELOPMENT_CONTEXT.md",
-    "docs/IMPLEMENTATION_PROGRESS.md"
+  "editor.tabSize": 2,
+  "editor.insertSpaces": true,
+  "editor.rulers": [
+    80,
+    100
   ],
-
-  "augment.systemPrompt": "You are Recruitly's senior technical advisor. Think as CEO for strategy, CTO for architecture, COO for execution. Focus on building self-improving AI optimization system that moves us toward 10,000 users. Every decision should consider: business impact, learning opportunity, revenue potential, and user experience.",
-
-  "augment.autoIncludeFiles": true,
-  "augment.includeWorkspaceContext": true,
-  "augment.projectContext": {
-    "name": "Recruitly",
-    "description": "AI-powered resume optimization platform targeting 10K users",
-    "phase": "1C - AI Issues Resolution & Deployment Prep",
-    "priorities": [
-      "Fix AI optimization issues (OpenAI + numpy)",
-      "Deploy to production (Railway + Netlify)",
-      "Get 20 beta users for validation",
-      "Implement learning data collection"
-    ]
-  },
-
-  "// Auto-run context update on key files": "",
-  "emeraldwalk.runonsave": {
-    "commands": [
-      {
-        "match": "\\.(py|tsx?|jsx?)$",
-        "isAsync": true,
-        "cmd": "node .vscode/context-tools/sync-session.js"
-      },
-      {
-        "match": "\\.augment/.*\\.md$",
-        "isAsync": true,
-        "cmd": "node .vscode/context-tools/update-augment-context.js"
-      }
-    ]
-  },
-
-  "// Development Workflow Integration": "",
+  "editor.wordWrap": "bounded",
+  "editor.wordWrapColumn": 100,
+  // File Associations
   "files.associations": {
+    "*.py": "python",
+    "*.tsx": "typescriptreact",
+    "*.ts": "typescript",
+    "*.jsx": "javascriptreact",
+    "*.js": "javascript",
+    "*.json": "json",
     "*.md": "markdown",
-    ".augment/*": "markdown"
+    "*.yml": "yaml",
+    "*.yaml": "yaml"
   },
-
-  "markdown.preview.breaks": true,
-  "markdown.preview.linkify": true
+  // Python Settings
+  "python.defaultInterpreterPath": "./backend/venv/Scripts/python.exe",
+  "python.linting.enabled": true,
+  "python.linting.pylintEnabled": false,
+  "python.linting.flake8Enabled": true,
+  "python.formatting.provider": "black",
+  "python.sortImports.args": [
+    "--profile",
+    "black"
+  ],
+  // TypeScript/JavaScript Settings
+  "typescript.preferences.importModuleSpecifier": "relative",
+  "javascript.preferences.importModuleSpecifier": "relative",
+  "typescript.suggest.autoImports": true,
+  "javascript.suggest.autoImports": true,
+  // Terminal Settings
+  "terminal.integrated.defaultProfile.windows": "PowerShell",
+  "terminal.integrated.profiles.windows": {
+    "PowerShell": {
+      "source": "PowerShell",
+      "args": [
+        "-NoExit",
+        "-Command",
+        "cd '${workspaceFolder}'"
+      ]
+    }
+  },
+  // Explorer Settings
+  "explorer.fileNesting.enabled": true,
+  "explorer.fileNesting.expand": false,
+  "explorer.fileNesting.patterns": {
+    "*.ts": "${capture}.js",
+    "*.js": "${capture}.js.map, ${capture}.min.js, ${capture}.d.ts",
+    "*.jsx": "${capture}.js",
+    "*.tsx": "${capture}.ts",
+    "tsconfig.json": "tsconfig.*.json",
+    "package.json": "package-lock.json, yarn.lock, pnpm-lock.yaml, bun.lockb",
+    "requirements.txt": "requirements-*.txt",
+    "*.py": "${capture}.pyc, ${capture}.pyo, ${capture}.pyd, __pycache__",
+    "Dockerfile": "docker-compose*.yml, .dockerignore, Dockerfile*"
+  },
+  // Search Settings
+  "search.exclude": {
+    "**/node_modules": true,
+    "**/venv": true,
+    "**/__pycache__": true,
+    "**/.git": true,
+    "**/dist": true,
+    "**/build": true,
+    "**/.next": true,
+    "**/coverage": true
+  },
+  // Files Settings
+  "files.exclude": {
+    "**/__pycache__": true,
+    "**/*.pyc": true,
+    "**/node_modules": true,
+    "**/.git": true,
+    "**/dist": true,
+    "**/build": true,
+    "**/.next": true,
+    "**/coverage": true,
+    "**/.DS_Store": true,
+    "**/Thumbs.db": true
+  },
+  // Auto Save
+  "files.autoSave": "afterDelay",
+  "files.autoSaveDelay": 1000,
+  // Emmet Settings
+  "emmet.includeLanguages": {
+    "typescript": "html",
+    "typescriptreact": "html"
+  },
+  // Extensions Settings
+  "extensions.ignoreRecommendations": false,
+  // Workbench Settings
+  "workbench.colorTheme": "Default Dark+",
+  "workbench.iconTheme": "material-icon-theme",
+  "workbench.startupEditor": "newUntitledFile",
+  "workbench.editor.enablePreview": false,
+  // Breadcrumbs
+  "breadcrumbs.enabled": true,
+  "breadcrumbs.showFiles": true,
+  "breadcrumbs.showSymbols": true,
+  // Minimap
+  "editor.minimap.enabled": true,
+  "editor.minimap.maxColumn": 120,
+  // Git Lens Settings (if installed)
+  "gitlens.codeLens.enabled": true,
+  "gitlens.codeLens.recentChange.enabled": true,
+  "gitlens.codeLens.authors.enabled": true,
+  "gitlens.blame.format": "${author}, ${agoOrDate}",
+  // Error Lens Settings (if installed)
+  "errorLens.enabled": true,
+  "errorLens.messageEnabled": true,
+  "errorLens.statusBarMessageEnabled": true,
+  // Project-specific settings
+  "files.watcherExclude": {
+    "**/backend/venv/**": true,
+    "**/node_modules/**": true,
+    "**/frontend/node_modules/**": true,
+    "**/.git/objects/**": true,
+    "**/.git/subtree-cache/**": true,
+    "**/tmp/**": true
+  }
 }

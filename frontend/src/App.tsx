@@ -1,23 +1,25 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { 
-  Upload, 
-  Search, 
-  CheckCircle, 
-  Clock, 
-  AlertCircle, 
-  TrendingUp,
+import {
+  AlertCircle,
+  Bot,
   Briefcase,
-  MapPin,
+  CheckCircle,
+  Clock,
   DollarSign,
-  Target,
-  Settings,
-  Play,
+  MapPin,
   Pause,
+  Play,
+  Search,
+  Send,
+  Settings,
+  Target,
+  TrendingUp,
   Wifi,
   WifiOff,
-  Zap,
-  Bot
+  Zap
 } from 'lucide-react';
+import React, { useCallback, useEffect, useState } from 'react';
+import { AutoApply } from './components/AutoApply';
+import { JobScraper } from './components/JobScraper';
 import ResumeOptimizer from './components/ResumeOptimizer';
 
 // Types
@@ -87,11 +89,11 @@ const api = {
         },
         ...options,
       });
-      
+
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-      
+
       return await response.json();
     } catch (error) {
       console.error(`API request failed for ${endpoint}:`, error);
@@ -102,15 +104,15 @@ const api = {
   async getDashboard(): Promise<DashboardData> {
     return this.request<DashboardData>('/api/dashboard');
   },
-  
+
   async getMatches(): Promise<{ matches: Match[]; total_matches: number }> {
     return this.request<{ matches: Match[]; total_matches: number }>('/api/matches');
   },
-  
+
   async getApplications(): Promise<{ applications: Application[] }> {
     return this.request<{ applications: Application[] }>('/api/applications');
   },
-  
+
   async applyToJob(jobId: string): Promise<{ message: string; task_id: string }> {
     return this.request<{ message: string; task_id: string }>(`/api/jobs/${jobId}/apply`, {
       method: 'POST',
@@ -131,7 +133,7 @@ const Dashboard: React.FC = () => {
   const [applying, setApplying] = useState<Record<string, boolean>>({});
   const [error, setError] = useState<string | null>(null);
   const [apiConnected, setApiConnected] = useState<boolean>(false);
-  
+
   const loadData = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -164,20 +166,20 @@ const Dashboard: React.FC = () => {
   useEffect(() => {
     loadData();
   }, [loadData]);
-  
+
   const handleApply = async (jobId: string) => {
     setApplying(prev => ({ ...prev, [jobId]: true }));
     try {
       const result = await api.applyToJob(jobId);
       console.log('Application result:', result);
-      
+
       // Update the match to show as applied
-      setMatches(prev => prev.map(match => 
-        match.job.id === jobId 
+      setMatches(prev => prev.map(match =>
+        match.job.id === jobId
           ? { ...match, already_applied: true }
           : match
       ));
-      
+
       // Show success message (you could add a toast notification here)
       alert(`🎉 ${result.message}`);
     } catch (error) {
@@ -207,8 +209,8 @@ const Dashboard: React.FC = () => {
           <h2 className="text-xl font-semibold text-gray-900 mb-2">Backend Connection Error</h2>
           <p className="text-gray-600 mb-6">{error}</p>
           <div className="space-y-3">
-            <button 
-              onClick={() => window.location.reload()} 
+            <button
+              onClick={() => window.location.reload()}
               className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors w-full"
             >
               Retry Connection
@@ -233,11 +235,10 @@ const Dashboard: React.FC = () => {
               <Briefcase className="h-8 w-8 text-blue-600" />
               <h1 className="ml-3 text-xl font-semibold text-gray-900">Recruitly</h1>
               <div className="ml-3 flex items-center space-x-2">
-                <div className={`flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                  apiConnected 
-                    ? 'bg-green-100 text-green-800' 
-                    : 'bg-red-100 text-red-800'
-                }`}>
+                <div className={`flex items-center px-2 py-1 rounded-full text-xs font-medium ${apiConnected
+                  ? 'bg-green-100 text-green-800'
+                  : 'bg-red-100 text-red-800'
+                  }`}>
                   {apiConnected ? (
                     <>
                       <Wifi className="h-3 w-3 mr-1" />
@@ -256,11 +257,13 @@ const Dashboard: React.FC = () => {
                 </div>
               </div>
             </div>
-            
+
             <nav className="flex space-x-8">
               {[
                 { key: 'dashboard', label: 'Dashboard', icon: TrendingUp },
                 { key: 'optimizer', label: 'AI Optimizer', icon: Bot },
+                { key: 'scraper', label: 'Job Scraper', icon: Search },
+                { key: 'auto-apply', label: 'Auto Apply', icon: Send },
                 { key: 'matches', label: 'Matches', icon: Target },
                 { key: 'applications', label: 'Applications', icon: Briefcase },
                 { key: 'settings', label: 'Settings', icon: Settings }
@@ -268,11 +271,10 @@ const Dashboard: React.FC = () => {
                 <button
                   key={key}
                   onClick={() => setActiveTab(key)}
-                  className={`flex items-center px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                    activeTab === key
-                      ? 'text-blue-600 bg-blue-50'
-                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                  }`}
+                  className={`flex items-center px-3 py-2 rounded-md text-sm font-medium transition-colors ${activeTab === key
+                    ? 'text-blue-600 bg-blue-50'
+                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                    }`}
                 >
                   <Icon className="h-4 w-4 mr-2" />
                   {label}
@@ -330,9 +332,8 @@ const Dashboard: React.FC = () => {
                     <div>
                       <p className="text-sm font-medium text-gray-600">{label}</p>
                       <p className="text-2xl font-semibold text-gray-900">{value}</p>
-                      <p className={`text-xs mt-1 ${
-                        change.startsWith('+') ? 'text-green-600' : 'text-red-600'
-                      }`}>
+                      <p className={`text-xs mt-1 ${change.startsWith('+') ? 'text-green-600' : 'text-red-600'
+                        }`}>
                         {change} from last month
                       </p>
                     </div>
@@ -354,7 +355,7 @@ const Dashboard: React.FC = () => {
                   <div>
                     <h3 className="text-lg font-medium text-gray-900">AI Auto-Apply Engine</h3>
                     <p className="text-sm text-gray-600">
-                      {dashboardData?.auto_apply_enabled 
+                      {dashboardData?.auto_apply_enabled
                         ? '🤖 Actively scanning and applying to matching jobs (Demo Mode)'
                         : 'Auto-apply is currently paused'
                       }
@@ -402,6 +403,14 @@ const Dashboard: React.FC = () => {
           <ResumeOptimizer />
         )}
 
+        {activeTab === 'scraper' && (
+          <JobScraper />
+        )}
+
+        {activeTab === 'auto-apply' && (
+          <AutoApply />
+        )}
+
         {activeTab === 'matches' && (
           <div className="space-y-6">
             <div className="flex items-center justify-between">
@@ -415,7 +424,7 @@ const Dashboard: React.FC = () => {
                 </div>
               </div>
             </div>
-            
+
             <div className="bg-white rounded-lg shadow divide-y divide-gray-200">
               {matches.map((match) => (
                 <JobCard key={match.match_id} match={match} onApply={handleApply} applying={applying} />
@@ -427,7 +436,7 @@ const Dashboard: React.FC = () => {
         {activeTab === 'applications' && (
           <div className="space-y-6">
             <h2 className="text-2xl font-semibold text-gray-900">📋 My Applications</h2>
-            
+
             <div className="bg-white rounded-lg shadow">
               <div className="divide-y divide-gray-200">
                 {applications.map((app) => (
@@ -441,7 +450,7 @@ const Dashboard: React.FC = () => {
         {activeTab === 'settings' && (
           <div className="space-y-6">
             <h2 className="text-2xl font-semibold text-gray-900">⚙️ Settings & Configuration</h2>
-            
+
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <div className="bg-white rounded-lg shadow p-6">
                 <h3 className="text-lg font-medium text-gray-900 mb-4">🚀 Next Phase Features</h3>
@@ -455,7 +464,7 @@ const Dashboard: React.FC = () => {
                       <p className="text-xs text-gray-500">OpenAI-powered resume tailoring for each job</p>
                     </div>
                   </div>
-                  
+
                   <div className="flex items-center p-3 border rounded-lg">
                     <div className="flex-shrink-0">
                       <Target className="h-5 w-5 text-blue-500" />
@@ -465,7 +474,7 @@ const Dashboard: React.FC = () => {
                       <p className="text-xs text-gray-500">RAFT-powered matching beyond keywords</p>
                     </div>
                   </div>
-                  
+
                   <div className="flex items-center p-3 border rounded-lg">
                     <div className="flex-shrink-0">
                       <Search className="h-5 w-5 text-green-500" />
@@ -475,7 +484,7 @@ const Dashboard: React.FC = () => {
                       <p className="text-xs text-gray-500">Real-time scraping from major job boards</p>
                     </div>
                   </div>
-                  
+
                   <div className="flex items-center p-3 border rounded-lg">
                     <div className="flex-shrink-0">
                       <Briefcase className="h-5 w-5 text-purple-500" />
@@ -487,7 +496,7 @@ const Dashboard: React.FC = () => {
                   </div>
                 </div>
               </div>
-              
+
               <div className="bg-white rounded-lg shadow p-6">
                 <h3 className="text-lg font-medium text-gray-900 mb-4">📊 Current MVP Status</h3>
                 <div className="space-y-4">
@@ -511,17 +520,17 @@ const Dashboard: React.FC = () => {
                     <span className="text-sm text-gray-600">🔄 Database Setup</span>
                     <span className="text-xs text-yellow-600 font-medium">Pending</span>
                   </div>
-                  
+
                   <div className="mt-6 p-4 bg-blue-50 rounded-lg">
                     <p className="text-sm text-blue-800">
-                      <strong>🎯 Phase 1A Progress:</strong> Basic API connection established. 
+                      <strong>🎯 Phase 1A Progress:</strong> Basic API connection established.
                       Ready to add AI matching engine and resume optimization.
                     </p>
                   </div>
                 </div>
               </div>
             </div>
-            
+
             <div className="bg-white rounded-lg shadow p-6">
               <h3 className="text-lg font-medium text-gray-900 mb-4">🔧 Technical Architecture</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -561,19 +570,19 @@ interface JobCardProps {
 
 const JobCard: React.FC<JobCardProps> = ({ match, onApply, applying }) => {
   const { job, scores } = match;
-  
+
   const formatSalary = (range?: number[]): string => {
     if (!range) return 'Not specified';
     return `${(range[0] / 1000).toFixed(0)}k - ${(range[1] / 1000).toFixed(0)}k`;
   };
-  
+
   const getMatchColor = (score: number): string => {
     if (score >= 0.9) return 'bg-green-100 text-green-800 border-green-200';
     if (score >= 0.8) return 'bg-blue-100 text-blue-800 border-blue-200';
     if (score >= 0.7) return 'bg-yellow-100 text-yellow-800 border-yellow-200';
     return 'bg-gray-100 text-gray-800 border-gray-200';
   };
-  
+
   return (
     <div className="p-6 hover:bg-gray-50 transition-colors">
       <div className="flex items-start justify-between">
@@ -589,7 +598,7 @@ const JobCard: React.FC<JobCardProps> = ({ match, onApply, applying }) => {
               Rank #{match.rank}
             </div>
           </div>
-          
+
           <div className="flex items-center text-sm text-gray-600 space-x-4 mb-3">
             <div className="flex items-center">
               <Briefcase className="h-4 w-4 mr-1" />
@@ -604,7 +613,7 @@ const JobCard: React.FC<JobCardProps> = ({ match, onApply, applying }) => {
               {formatSalary(job.salary_range)}
             </div>
           </div>
-          
+
           <div className="flex flex-wrap gap-2 mb-4">
             {job.required_skills.slice(0, 6).map((skill) => (
               <span
@@ -620,7 +629,7 @@ const JobCard: React.FC<JobCardProps> = ({ match, onApply, applying }) => {
               </span>
             )}
           </div>
-          
+
           <div className="grid grid-cols-4 gap-4 text-center">
             {[
               { label: 'Skills', score: scores.skills, emoji: '🛠️' },
@@ -630,18 +639,17 @@ const JobCard: React.FC<JobCardProps> = ({ match, onApply, applying }) => {
             ].map(({ label, score, emoji }) => (
               <div key={label}>
                 <div className="text-xs text-gray-500">{emoji} {label}</div>
-                <div className={`text-sm font-medium ${
-                  score >= 0.9 ? 'text-green-600' :
+                <div className={`text-sm font-medium ${score >= 0.9 ? 'text-green-600' :
                   score >= 0.8 ? 'text-blue-600' :
-                  score >= 0.7 ? 'text-yellow-600' : 'text-gray-600'
-                }`}>
+                    score >= 0.7 ? 'text-yellow-600' : 'text-gray-600'
+                  }`}>
                   {Math.round(score * 100)}%
                 </div>
               </div>
             ))}
           </div>
         </div>
-        
+
         <div className="flex-shrink-0 ml-6">
           <div className="flex flex-col space-y-2">
             <a
@@ -689,7 +697,7 @@ interface ApplicationCardProps {
 
 const ApplicationCard: React.FC<ApplicationCardProps> = ({ application }) => {
   const { job, status, submitted_at, application_method } = application;
-  
+
   const getStatusConfig = (status: string) => {
     const configs: Record<string, { color: string; emoji: string; label: string }> = {
       'pending': { color: 'text-yellow-600 bg-yellow-50 border-yellow-200', emoji: '⏳', label: 'PENDING' },
@@ -700,7 +708,7 @@ const ApplicationCard: React.FC<ApplicationCardProps> = ({ application }) => {
     };
     return configs[status] || { color: 'text-gray-600 bg-gray-50 border-gray-200', emoji: '📋', label: status.toUpperCase() };
   };
-  
+
   const formatDate = (dateString: string): string => {
     return new Date(dateString).toLocaleDateString('en-US', {
       month: 'short',
@@ -709,9 +717,9 @@ const ApplicationCard: React.FC<ApplicationCardProps> = ({ application }) => {
       minute: '2-digit'
     });
   };
-  
+
   const statusConfig = getStatusConfig(status);
-  
+
   return (
     <div className="p-6 hover:bg-gray-50 transition-colors">
       <div className="flex items-start justify-between">
@@ -738,7 +746,7 @@ const ApplicationCard: React.FC<ApplicationCardProps> = ({ application }) => {
             </span>
           </div>
         </div>
-        
+
         <div className="flex-shrink-0">
           {application.needs_follow_up && !application.follow_up_sent && (
             <div className="flex items-center text-yellow-600 bg-yellow-50 px-3 py-1 rounded-full text-xs">

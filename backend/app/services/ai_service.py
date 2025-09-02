@@ -19,8 +19,7 @@ import time
 import asyncio
 from datetime import datetime
 from typing import List, Dict, Any, Optional, Tuple
-import numpy as np
-from sklearn.metrics.pairwise import cosine_similarity
+# numpy and sklearn imports are handled lazily in _lazy_load_ml()
 
 # Import validation and tracking modules
 from ..validators.job_description_validator import JobDescriptionValidator, ValidationResult
@@ -28,6 +27,7 @@ from .ai_processing_tracker import ai_tracker
 from .ai_health_checker import ai_health_checker, HealthStatus
 from ..utils.confidence_calculator import confidence_calculator, ConfidenceFactors
 from .file_processor import FileProcessor
+from .cache_service import cache_service
 
 # Flags to record ML backend availability
 _ML_BACKEND_OK = False
@@ -43,10 +43,18 @@ def _lazy_load_ml():
     try:
         import numpy as np  # type: ignore
         try:
-            from sklearn.metrics.pairwise import cosine_similarity as _cosine  # type: ignore
-        except Exception as e:
+            # Try to import sklearn, but handle the ComplexWarning import issue
+            import warnings
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                from sklearn.metrics.pairwise import cosine_similarity as _cosine  # type: ignore
+        except ImportError as e:
             # sklearn may fail if incompatible with installed numpy
             _ML_IMPORT_ERR = f"scikit-learn import failed: {e}"
+            return False
+        except Exception as e:
+            # Handle any other sklearn-related errors
+            _ML_IMPORT_ERR = f"scikit-learn error: {e}"
             return False
         _ML_BACKEND_OK = True
         return True
@@ -76,7 +84,7 @@ class AIService:
         self.chat_model = "gpt-4o-mini"
         
     async def get_embeddings(self, texts: List[str]) -> List[List[float]]:
-        """Generate embeddings; returns [] on failure (caller handles fallback)."""
+        """Generate embeddings with Redis caching; returns [] on failure (caller handles fallback)."""
         try:
             # Filter out empty strings and ensure minimum length
             valid_texts = [text.strip() for text in texts if text and text.strip() and len(text.strip()) > 3]
@@ -85,6 +93,32 @@ class AIService:
                 print("No valid texts for embedding generation")
                 return []
 
+            embeddings = []
+            texts_to_generate = []
+            text_indices = []
+            
+            # Check cache for each text
+            for i, text in enumerate(valid_texts):
+                cached_embedding = await cache_service.get_cached_embedding(text, self.embedding_model)
+                if cached_embedding:
+                    embeddings.append(cached_embedding)
+                    print(f"Cache hit for embedding {i}")
+                else:
+                    embeddings.append(None)  # Placeholder
+                    texts_to_generate.append(text)
+                    text_indices.append(i)
+            
+            # Generate embeddings for texts not in cache
+            if texts_to_generate:
+                print(f"Generating {len(texts_to_generate)} new embeddings")
+                response = self.client.embeddings.create(model=self.embedding_model, input=texts_to_generate)
+                new_embeddings = [embedding.embedding for embedding in response.data]
+                
+                # Cache new embeddings and update result list
+                for i, (text, embedding) in enumerate(zip(texts_to_generate, new_embeddings)):
+                    await cache_service.cache_embedding(text, embedding, self.embedding_model)
+                    embeddings[text_indices[i]] = embedding
+            
             # Replace original empty texts with placeholder
             processed_texts = []
             for text in texts:
@@ -93,8 +127,7 @@ class AIService:
                 else:
                     processed_texts.append("No relevant information available")
 
-            response = self.client.embeddings.create(model=self.embedding_model, input=processed_texts)
-            return [embedding.embedding for embedding in response.data]
+            return embeddings
         except Exception as e:
             print(f"Error generating embeddings (fallback to heuristic similarity): {e}")
             return []
@@ -108,7 +141,7 @@ class AIService:
                 import numpy as np  # type: ignore
                 v1 = np.array(e1).reshape(1, -1)
                 v2 = np.array(e2).reshape(1, -1)
-                from sklearn.metrics.pairwise import cosine_similarity as _cosine  # type: ignore
+                # _cosine is already imported in _lazy_load_ml()
                 sim = float(_cosine(v1, v2)[0][0])
                 return max(0.0, min(1.0, sim))
             # If ML backend not available, fallback to manual dot product normalization

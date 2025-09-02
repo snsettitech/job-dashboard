@@ -1,46 +1,170 @@
-# Getting Started with Create React App
+# Job Dashboard - AI-Powered Job Search Platform
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+A comprehensive job search platform with AI-powered resume optimization, job matching, and automated job scraping from major platforms.
 
-## Available Scripts
+## 🚀 Features
 
-In the project directory, you can run:
+- **AI Resume Optimizer**: OpenAI-powered resume tailoring for specific job requirements
+- **Job Scraper**: Serverless function to scrape job listings from Indeed, LinkedIn, and Glassdoor
+- **Smart Job Matching**: RAFT-powered semantic matching between resumes and job postings
+- **Application Tracking**: Track and manage job applications with follow-up reminders
+- **Real-time Dashboard**: Live metrics and insights for your job search progress
 
-### `npm start`
+## 🛠️ Tech Stack
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in the browser.
+- **Frontend**: React + TypeScript + Tailwind CSS
+- **Backend**: FastAPI + Python
+- **AI Services**: OpenAI GPT-4o-mini, RAFT embeddings
+- **Database**: PostgreSQL + SQLAlchemy
+- **Deployment**: Netlify (Frontend) + Railway (Backend)
+- **Job Scraping**: Playwright serverless functions
 
-The page will reload if you make edits.\
-You will also see any lint errors in the console.
+## 📁 Project Structure
 
-### `npm test`
+```
+job-dashboard/
+├── frontend/                 # React frontend application
+│   ├── netlify/             # Netlify serverless functions
+│   │   └── functions/       # Job scraper function
+│   ├── src/
+│   │   ├── components/      # React components
+│   │   └── services/        # API services
+│   └── JOB_SCRAPER_README.md
+├── backend/                 # FastAPI backend
+├── ai-service/             # AI processing service
+├── user-service/           # User management service
+├── resume-service/         # Resume processing service
+└── docs/                   # Documentation
+```
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+## 🚀 Quick Start
 
-### `npm run build`
+### Prerequisites
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+- Node.js 18+ and npm
+- Python 3.8+ (for backend services)
+- Git
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+### Frontend Setup
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+1. **Navigate to frontend directory:**
+   ```bash
+   cd frontend
+   ```
 
-### `npm run eject`
+2. **Install dependencies:**
+   ```bash
+   npm install
+   ```
 
-**Note: this is a one-way operation. Once you `eject`, you can’t go back!**
+3. **Set up job scraper (optional):**
+   ```bash
+   # Windows
+   .\setup-scraper.ps1
+   
+   # Or manually:
+   cd netlify/functions
+   npm install
+   npx playwright install chromium
+   cd ../..
+   ```
 
-If you aren’t satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+4. **Start development server:**
+   ```bash
+   npm start
+   ```
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you’re on your own.
+5. **Open your browser:**
+   Navigate to [http://localhost:3000](http://localhost:3000)
 
-You don’t have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn’t feel obligated to use this feature. However we understand that this tool wouldn’t be useful if you couldn’t customize it when you are ready for it.
+### Backend Setup
 
-## Learn More
+1. **Navigate to backend directory:**
+   ```bash
+   cd backend
+   ```
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+2. **Create virtual environment:**
+   ```bash
+   python -m venv venv
+   source venv/bin/activate  # On Windows: venv\Scripts\activate
+   ```
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+3. **Install dependencies:**
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+4. **Start backend server:**
+   ```bash
+   python main.py
+   ```
+
+## 📋 Available Scripts
+
+### Frontend Scripts
+
+- `npm start` - Start development server
+- `npm run build` - Build for production
+- `npm test` - Run tests
+- `npm run eject` - Eject from Create React App
+
+### Job Scraper Scripts
+
+- `.\setup-scraper.ps1` - Set up job scraper dependencies
+- `node test-scraper.js` - Test scraper functionality
+
+## 🔧 Configuration
+
+### Environment Variables
+
+Create a `.env` file in the frontend directory:
+
+```env
+REACT_APP_API_URL=http://localhost:8000
+```
+
+### Job Scraper Configuration
+
+The job scraper supports configuration through the UI:
+- **Keywords**: Job search terms
+- **Location**: Geographic preference
+- **Platforms**: Indeed, LinkedIn, Glassdoor
+- **Max Results**: Number of jobs per platform
+
+## 📚 Documentation
+
+- [Job Scraper Documentation](./frontend/JOB_SCRAPER_README.md)
+- [Development Context](./docs/DEVELOPMENT_CONTEXT.md)
+- [Product Vision](./docs/PRODUCT_VISION.md)
+- [Implementation Progress](./docs/IMPLEMENTATION_PROGRESS.md)
+
+## 🚨 Important Notes
+
+### Legal Considerations
+
+⚠️ **Web scraping may be subject to terms of service and legal restrictions:**
+
+1. Check each platform's Terms of Service before scraping
+2. Respect rate limits to avoid being blocked
+3. Only use scraped data for legitimate purposes
+4. Consider providing attribution when using scraped data
+
+### Rate Limiting
+
+The job scraper includes built-in delays and anti-detection measures, but:
+- Some platforms may block automated access
+- Results may vary based on geographic location
+- Website structure changes may break selectors
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Add tests if applicable
+5. Submit a pull request
+
+## 📄 License
+
+This project is licensed under the MIT License - see the LICENSE file for details.

@@ -1,0 +1,16 @@
+{
+  "name": "job-scraper-functions",
+  "version": "1.0.0",
+  "description": "Serverless functions for job scraping and auto-application using Playwright and Puppeteer",
+  "main": "scrape-jobs.js",
+  "dependencies": {
+    "playwright": "^1.40.0",
+    "puppeteer": "^21.0.0"
+  },
+  "scripts": {
+    "install-browsers": "playwright install chromium && puppeteer browsers install chrome"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

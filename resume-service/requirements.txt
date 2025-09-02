@@ -1,0 +1,49 @@
+# Resume Service Microservice Requirements
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+python-multipart==0.0.6
+python-dotenv==1.0.0
+
+# Database
+sqlalchemy==2.0.25
+psycopg2-binary==2.9.9
+alembic==1.13.1
+
+# File Processing
+PyMuPDF==1.23.8
+python-docx==1.1.0
+Pillow==10.1.0
+
+# Cloud Storage (S3/Railway)
+boto3==1.34.0
+aioboto3==12.3.0
+
+# Data Validation
+pydantic==2.5.0
+pydantic-settings==2.1.0
+
+# HTTP Client
+httpx==0.25.2
+requests==2.31.0
+
+# File Handling
+aiofiles==23.2.0
+python-magic==0.4.27
+
+# Image Processing (for resume parsing)
+opencv-python==4.8.1.78
+pytesseract==0.3.10
+
+# Utilities
+python-dateutil==2.8.2
+uuid==1.30
+structlog==23.2.0
+
+# Development & Testing
+pytest==7.4.3
+pytest-asyncio==0.21.1
+pytest-cov==4.1.0
+
+# Security
+cryptography==41.0.7
+

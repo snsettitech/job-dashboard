@@ -1,0 +1,147 @@
+# Resume Service Docker Compose Configuration
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:13
+    container_name: resume_service_postgres
+    environment:
+      POSTGRES_DB: resume_service_db
+      POSTGRES_USER: resume_service_user
+      POSTGRES_PASSWORD: resume_service_password
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - resume_service_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U resume_service_user -d resume_service_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Resume Service API
+  resume_service:
+    build: .
+    container_name: resume_service_api
+    environment:
+      # Service Configuration
+      - ENVIRONMENT=development
+      - HOST=0.0.0.0
+      - PORT=8002
+      - ALLOWED_ORIGINS=http://localhost:3000,http://localhost:8000,http://localhost:8002
+      
+      # Database Configuration
+      - DATABASE_URL=postgresql://resume_service_user:resume_service_password@postgres:5432/resume_service_db
+      - DB_POOL_SIZE=10
+      - DB_MAX_OVERFLOW=20
+      - DB_ECHO=false
+      
+      # Storage Configuration (using local for development)
+      - STORAGE_PROVIDER=local
+      - LOCAL_STORAGE_PATH=/app/local_storage
+      
+      # File Processing Configuration
+      - MAX_FILE_SIZE=10485760
+      - ALLOWED_FILE_TYPES=pdf,docx,txt,jpg,jpeg,png
+      
+      # OCR Configuration
+      - TESSERACT_CMD_PATH=/usr/bin/tesseract
+      
+      # Logging Configuration
+      - LOG_LEVEL=INFO
+      
+      # Development Configuration
+      - DEBUG=true
+      - RELOAD=true
+    ports:
+      - "8002:8002"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - resume_service_network
+    volumes:
+      - .:/app
+      - resume_storage:/app/local_storage
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8002/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Redis (for future caching)
+  redis:
+    image: redis:7-alpine
+    container_name: resume_service_redis
+    ports:
+      - "6380:6379"
+    networks:
+      - resume_service_network
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # pgAdmin (for database management)
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: resume_service_pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@resume-service.com
+      PGADMIN_DEFAULT_PASSWORD: admin123
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+    ports:
+      - "8082:80"
+    depends_on:
+      - postgres
+    networks:
+      - resume_service_network
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    restart: unless-stopped
+
+  # MinIO (S3-compatible storage for development)
+  minio:
+    image: minio/minio:latest
+    container_name: resume_service_minio
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin123
+    ports:
+      - "9001:9000"
+      - "9002:9001"
+    volumes:
+      - minio_data:/data
+    networks:
+      - resume_service_network
+    command: server /data --console-address ":9001"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+
+volumes:
+  postgres_data:
+  redis_data:
+  pgadmin_data:
+  minio_data:
+  resume_storage:
+
+networks:
+  resume_service_network:
+    driver: bridge
+
+
+

@@ -1,20 +1,25 @@
-// src/components/ResumeOptimizer.tsx - AI Resume Optimization Interface
-import React, { useState, useCallback } from 'react';
-import { 
-  Upload, 
-  FileText, 
-  Zap, 
-  Download, 
-  CheckCircle, 
-  AlertCircle, 
-  Loader2,
-  TrendingUp,
-  Target,
-  Star,
+// src/components/ResumeOptimizer.tsx - Enhanced AI Resume Optimization Interface
+import {
+  AlertCircle,
   ArrowRight,
+  Award,
+  BarChart3,
+  CheckCircle,
   Copy,
-  RefreshCw
+  Download,
+  Edit3,
+  Eye,
+  FileDown,
+  FileText,
+  Loader2,
+  RefreshCw,
+  Star,
+  Target,
+  TrendingUp,
+  Upload,
+  Zap
 } from 'lucide-react';
+import React, { useCallback, useState } from 'react';
 
 // Types
 interface OptimizationResult {
@@ -71,17 +76,23 @@ const ResumeOptimizer: React.FC = () => {
   const [processing, setProcessing] = useState(false);
   const [result, setResult] = useState<OptimizationResult | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'upload' | 'results'>('upload');
+  const [activeTab, setActiveTab] = useState<'upload' | 'results' | 'comparison'>('upload');
+  const [viewMode, setViewMode] = useState<'original' | 'optimized' | 'side-by-side'>('side-by-side');
 
   // Validate and sanitize API response
   const validateAndSanitizeResult = (data: any): OptimizationResult => {
     return {
       status: data.status || 'success',
       processing_date: data.processing_date || new Date().toISOString(),
-      file_info: data.file_info || { filename: 'unknown', size: 0, type: 'unknown' },
+      file_info: data.file_info || { filename: 'unknown', content_type: 'unknown', word_count: 0 },
       original_resume: {
         text: data.original_resume?.text || '',
         word_count: data.original_resume?.word_count || 0,
+        quality_analysis: data.original_resume?.quality_analysis || {
+          quality_score: 0,
+          grade: 'N/A',
+          feedback: []
+        },
         structured_info: data.original_resume?.structured_info || {}
       },
       job_match_analysis: {
@@ -92,7 +103,8 @@ const ResumeOptimizer: React.FC = () => {
           location: data.job_match_analysis?.scores?.location || 0,
           salary: data.job_match_analysis?.scores?.salary || 0
         },
-        recommendation: data.job_match_analysis?.recommendation || 'No recommendation available'
+        recommendation: data.job_match_analysis?.recommendation || 'No recommendation available',
+        top_matching_skills: data.job_match_analysis?.top_matching_skills || []
       },
       optimization: {
         optimized_resume: data.optimization?.optimized_resume || '',
@@ -121,18 +133,18 @@ const ResumeOptimizer: React.FC = () => {
         'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
         'text/plain'
       ];
-      
+
       if (!validTypes.includes(selectedFile.type)) {
         setError('Please upload a PDF, DOCX, or TXT file');
         return;
       }
-      
+
       // Validate file size (5MB max)
       if (selectedFile.size > 5 * 1024 * 1024) {
         setError('File size must be less than 5MB');
         return;
       }
-      
+
       setFile(selectedFile);
       setError(null);
     }
@@ -168,7 +180,7 @@ const ResumeOptimizer: React.FC = () => {
       const resultData = validateAndSanitizeResult(rawData);
       setResult(resultData);
       setActiveTab('results');
-      
+
     } catch (err) {
       console.error('Optimization error:', err);
       setError(err instanceof Error ? err.message : 'An error occurred during optimization');
@@ -177,15 +189,35 @@ const ResumeOptimizer: React.FC = () => {
     }
   }, [file, jobDescription, companyName, jobTitle]);
 
-  const downloadOptimizedResume = useCallback(async () => {
-    if (!result) return;
-
+  const downloadResume = useCallback(async (format: 'txt' | 'pdf' | 'docx', text: string, filename: string) => {
     try {
-      const formData = new FormData();
-      formData.append('optimized_text', result.optimization?.optimized_resume || '');
-      formData.append('filename', `optimized_${result.file_info?.filename?.replace(/\.[^/.]+$/, '') || 'resume'}.txt`);
+      let endpoint = '';
+      let mediaType = '';
+      let fileExtension = '';
 
-      const response = await fetch('http://localhost:8000/api/ai/download-optimized-resume', {
+      switch (format) {
+        case 'txt':
+          endpoint = 'http://localhost:8000/api/ai/download-optimized-resume';
+          mediaType = 'text/plain';
+          fileExtension = '.txt';
+          break;
+        case 'pdf':
+          endpoint = 'http://localhost:8000/api/ai/download-resume-pdf';
+          mediaType = 'application/pdf';
+          fileExtension = '.pdf';
+          break;
+        case 'docx':
+          endpoint = 'http://localhost:8000/api/ai/download-resume-docx';
+          mediaType = 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+          fileExtension = '.docx';
+          break;
+      }
+
+      const formData = new FormData();
+      formData.append('resume_text', text);
+      formData.append('filename', `${filename}${fileExtension}`);
+
+      const response = await fetch(endpoint, {
         method: 'POST',
         body: formData,
       });
@@ -195,7 +227,7 @@ const ResumeOptimizer: React.FC = () => {
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `optimized_${result.file_info?.filename?.replace(/\.[^/.]+$/, '') || 'resume'}.txt`;
+        a.download = `${filename}${fileExtension}`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
@@ -203,9 +235,9 @@ const ResumeOptimizer: React.FC = () => {
       }
     } catch (error) {
       console.error('Download error:', error);
-      setError('Failed to download optimized resume');
+      setError(`Failed to download ${format.toUpperCase()} resume`);
     }
-  }, [result]);
+  }, []);
 
   const copyToClipboard = useCallback((text: string) => {
     navigator.clipboard.writeText(text);
@@ -220,10 +252,23 @@ const ResumeOptimizer: React.FC = () => {
     setResult(null);
     setError(null);
     setActiveTab('upload');
+    setViewMode('side-by-side');
   }, []);
 
+  const getScoreColor = (score: number) => {
+    if (score >= 0.8) return 'text-green-600';
+    if (score >= 0.6) return 'text-yellow-600';
+    return 'text-red-600';
+  };
+
+  const getScoreBgColor = (score: number) => {
+    if (score >= 0.8) return 'bg-green-100';
+    if (score >= 0.6) return 'bg-yellow-100';
+    return 'bg-red-100';
+  };
+
   return (
-    <div className="max-w-6xl mx-auto p-6 space-y-6">
+    <div className="max-w-7xl mx-auto p-6 space-y-6">
       {/* Header */}
       <div className="text-center space-y-2">
         <h1 className="text-3xl font-bold text-gray-900 flex items-center justify-center">
@@ -240,24 +285,32 @@ const ResumeOptimizer: React.FC = () => {
         <div className="flex bg-gray-100 rounded-lg p-1">
           <button
             onClick={() => setActiveTab('upload')}
-            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-              activeTab === 'upload'
-                ? 'bg-white text-blue-600 shadow-sm'
-                : 'text-gray-600 hover:text-gray-900'
-            }`}
+            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${activeTab === 'upload'
+              ? 'bg-white text-blue-600 shadow-sm'
+              : 'text-gray-600 hover:text-gray-900'
+              }`}
           >
             Upload & Optimize
           </button>
           <button
             onClick={() => setActiveTab('results')}
             disabled={!result}
-            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-              activeTab === 'results' && result
-                ? 'bg-white text-blue-600 shadow-sm'
-                : 'text-gray-400 cursor-not-allowed'
-            }`}
+            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${activeTab === 'results' && result
+              ? 'bg-white text-blue-600 shadow-sm'
+              : 'text-gray-400 cursor-not-allowed'
+              }`}
           >
-            Results & Download
+            Results & Analysis
+          </button>
+          <button
+            onClick={() => setActiveTab('comparison')}
+            disabled={!result}
+            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${activeTab === 'comparison' && result
+              ? 'bg-white text-blue-600 shadow-sm'
+              : 'text-gray-400 cursor-not-allowed'
+              }`}
+          >
+            Side-by-Side Comparison
           </button>
         </div>
       </div>
@@ -271,14 +324,13 @@ const ResumeOptimizer: React.FC = () => {
               <Upload className="h-5 w-5 mr-2" />
               Upload Your Resume
             </h3>
-            
+
             <div className="space-y-4">
-              <div 
-                className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
-                  file 
-                    ? 'border-green-300 bg-green-50' 
-                    : 'border-gray-300 hover:border-gray-400'
-                }`}
+              <div
+                className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${file
+                  ? 'border-green-300 bg-green-50'
+                  : 'border-gray-300 hover:border-gray-400'
+                  }`}
               >
                 <input
                   type="file"
@@ -349,14 +401,14 @@ const ResumeOptimizer: React.FC = () => {
               <Target className="h-5 w-5 mr-2" />
               Job Description
             </h3>
-            
+
             <textarea
               value={jobDescription}
               onChange={(e) => setJobDescription(e.target.value)}
               placeholder="Paste the complete job description here. Include requirements, responsibilities, and preferred qualifications for best optimization results..."
               className="w-full h-64 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
             />
-            
+
             <div className="mt-4 flex items-center justify-between text-sm text-gray-500">
               <span>{jobDescription.length} characters</span>
               <span>{jobDescription.split(/\s+/).length - 1} words</span>
@@ -369,7 +421,7 @@ const ResumeOptimizer: React.FC = () => {
       {activeTab === 'results' && result && (
         <div className="space-y-6">
           {/* Summary Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="bg-gradient-to-r from-green-500 to-green-600 rounded-lg p-6 text-white">
               <div className="flex items-center justify-between">
                 <div>
@@ -407,44 +459,109 @@ const ResumeOptimizer: React.FC = () => {
                 <Star className="h-10 w-10 text-purple-200" />
               </div>
             </div>
-          </div>
 
-          {/* Optimized Resume */}
-          <div className="bg-white rounded-lg shadow">
-            <div className="p-6 border-b border-gray-200">
+            <div className="bg-gradient-to-r from-orange-500 to-orange-600 rounded-lg p-6 text-white">
               <div className="flex items-center justify-between">
-                <h3 className="text-lg font-medium text-gray-900">
-                  🚀 Your Optimized Resume
-                </h3>
-                <div className="flex space-x-2">
-                  <button
-                    onClick={() => copyToClipboard(result.optimization?.optimized_resume || '')}
-                    className="px-3 py-2 text-sm bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors flex items-center"
-                  >
-                    <Copy className="h-4 w-4 mr-1" />
-                    Copy
-                  </button>
-                  <button
-                    onClick={downloadOptimizedResume}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors flex items-center"
-                  >
-                    <Download className="h-4 w-4 mr-2" />
-                    Download
-                  </button>
+                <div>
+                  <p className="text-orange-100">Improvements</p>
+                  <p className="text-3xl font-bold">
+                    {result.optimization?.improvements_made?.length || 0}
+                  </p>
                 </div>
-              </div>
-            </div>
-            
-            <div className="p-6">
-              <div className="bg-gray-50 rounded-lg p-4 max-h-96 overflow-y-auto">
-                <pre className="whitespace-pre-wrap text-sm text-gray-800 font-mono">
-                  {result.optimization?.optimized_resume || 'No optimized resume available'}
-                </pre>
+                <Award className="h-10 w-10 text-orange-200" />
               </div>
             </div>
           </div>
 
-          {/* Improvements Summary */}
+          {/* Detailed Analysis */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Job Match Analysis */}
+            <div className="bg-white rounded-lg shadow p-6">
+              <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center">
+                <BarChart3 className="h-5 w-5 mr-2 text-blue-600" />
+                Job Match Analysis
+              </h3>
+
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-gray-700">Overall Match</span>
+                  <span className={`text-lg font-bold ${getScoreColor(result.job_match_analysis?.scores?.overall || 0)}`}>
+                    {Math.round((result.job_match_analysis?.scores?.overall || 0) * 100)}%
+                  </span>
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-600">Skills Match</span>
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${getScoreBgColor(result.job_match_analysis?.scores?.skills || 0)} ${getScoreColor(result.job_match_analysis?.scores?.skills || 0)}`}>
+                      {Math.round((result.job_match_analysis?.scores?.skills || 0) * 100)}%
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-600">Experience Match</span>
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${getScoreBgColor(result.job_match_analysis?.scores?.experience || 0)} ${getScoreColor(result.job_match_analysis?.scores?.experience || 0)}`}>
+                      {Math.round((result.job_match_analysis?.scores?.experience || 0) * 100)}%
+                    </span>
+                  </div>
+                </div>
+
+                {result.job_match_analysis?.top_matching_skills && result.job_match_analysis.top_matching_skills.length > 0 && (
+                  <div>
+                    <p className="text-sm font-medium text-gray-700 mb-2">Top Matching Skills:</p>
+                    <div className="flex flex-wrap gap-2">
+                      {result.job_match_analysis.top_matching_skills.slice(0, 6).map((skill, index) => (
+                        <span
+                          key={index}
+                          className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium"
+                        >
+                          {skill}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Optimization Summary */}
+            <div className="bg-white rounded-lg shadow p-6">
+              <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center">
+                <TrendingUp className="h-5 w-5 mr-2 text-green-600" />
+                Optimization Summary
+              </h3>
+
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="text-center p-3 bg-gray-50 rounded-lg">
+                    <p className="text-2xl font-bold text-gray-900">{result.optimization?.improvement_summary?.original_words || 0}</p>
+                    <p className="text-xs text-gray-600">Original Words</p>
+                  </div>
+                  <div className="text-center p-3 bg-green-50 rounded-lg">
+                    <p className="text-2xl font-bold text-green-900">{result.optimization?.improvement_summary?.optimized_words || 0}</p>
+                    <p className="text-xs text-green-600">Optimized Words</p>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <p className="text-sm text-gray-700">
+                    <span className="font-medium">ATS Score Improvement:</span> {result.optimization?.ats_score_improvement || 'N/A'}
+                  </p>
+                  <p className="text-sm text-gray-700">
+                    <span className="font-medium">Match Score Prediction:</span> {Math.round((result.optimization?.match_score_prediction || 0) * 100)}%
+                  </p>
+                </div>
+
+                {result.optimization?.optimization_summary && (
+                  <div className="p-3 bg-blue-50 rounded-lg">
+                    <p className="text-sm text-blue-800">{result.optimization.optimization_summary}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Improvements and Keywords */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div className="bg-white rounded-lg shadow p-6">
               <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center">
@@ -491,28 +608,181 @@ const ResumeOptimizer: React.FC = () => {
             </div>
           </div>
 
-          {/* Next Steps */}
-          <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-lg p-6">
-            <h3 className="text-lg font-medium text-gray-900 mb-4">
-              🎯 Recommended Next Steps
+          {/* Download Options */}
+          <div className="bg-white rounded-lg shadow p-6">
+            <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center">
+              <Download className="h-5 w-5 mr-2 text-blue-600" />
+              Download Optimized Resume
             </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {(result.next_steps || []).map((step, index) => (
-                <div key={index} className="flex items-start">
-                  <span className="flex-shrink-0 w-6 h-6 bg-indigo-600 text-white rounded-full flex items-center justify-center text-sm font-medium mr-3">
-                    {index + 1}
-                  </span>
-                  <span className="text-sm text-gray-700">{step}</span>
+
+            <div className="flex flex-wrap gap-3">
+              <button
+                onClick={() => downloadResume('txt', result.optimization?.optimized_resume || '', `optimized_${result.file_info?.filename?.replace(/\.[^/.]+$/, '') || 'resume'}`)}
+                className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors flex items-center"
+              >
+                <FileText className="h-4 w-4 mr-2" />
+                Download TXT
+              </button>
+
+              <button
+                onClick={() => downloadResume('pdf', result.optimization?.optimized_resume || '', `optimized_${result.file_info?.filename?.replace(/\.[^/.]+$/, '') || 'resume'}`)}
+                className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors flex items-center"
+              >
+                <FileDown className="h-4 w-4 mr-2" />
+                Download PDF
+              </button>
+
+              <button
+                onClick={() => downloadResume('docx', result.optimization?.optimized_resume || '', `optimized_${result.file_info?.filename?.replace(/\.[^/.]+$/, '') || 'resume'}`)}
+                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors flex items-center"
+              >
+                <FileDown className="h-4 w-4 mr-2" />
+                Download DOCX
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Comparison Tab */}
+      {activeTab === 'comparison' && result && (
+        <div className="space-y-6">
+          {/* View Mode Toggle */}
+          <div className="flex justify-center">
+            <div className="flex bg-gray-100 rounded-lg p-1">
+              <button
+                onClick={() => setViewMode('side-by-side')}
+                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${viewMode === 'side-by-side'
+                  ? 'bg-white text-blue-600 shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900'
+                  }`}
+              >
+                <Eye className="h-4 w-4 mr-2 inline" />
+                Side by Side
+              </button>
+              <button
+                onClick={() => setViewMode('original')}
+                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${viewMode === 'original'
+                  ? 'bg-white text-blue-600 shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900'
+                  }`}
+              >
+                <FileText className="h-4 w-4 mr-2 inline" />
+                Original Only
+              </button>
+              <button
+                onClick={() => setViewMode('optimized')}
+                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${viewMode === 'optimized'
+                  ? 'bg-white text-blue-600 shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900'
+                  }`}
+              >
+                <Edit3 className="h-4 w-4 mr-2 inline" />
+                Optimized Only
+              </button>
+            </div>
+          </div>
+
+          {/* Resume Content Display */}
+          <div className="bg-white rounded-lg shadow">
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-medium text-gray-900">
+                  {viewMode === 'side-by-side' ? '🔄 Resume Comparison' :
+                    viewMode === 'original' ? '📄 Original Resume' : '✨ Optimized Resume'}
+                </h3>
+                <div className="flex space-x-2">
+                  <button
+                    onClick={() => copyToClipboard(viewMode === 'original' ? result.original_resume?.text || '' : result.optimization?.optimized_resume || '')}
+                    className="px-3 py-2 text-sm bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors flex items-center"
+                  >
+                    <Copy className="h-4 w-4 mr-1" />
+                    Copy
+                  </button>
                 </div>
-              ))}
+              </div>
             </div>
 
-            {(!result.next_steps || result.next_steps.length === 0) && (
-              <p className="text-sm text-gray-500 italic">
-                No specific next steps available at this time.
-              </p>
-            )}
+            <div className="p-6">
+              {viewMode === 'side-by-side' ? (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* Original Resume */}
+                  <div>
+                    <h4 className="text-md font-medium text-gray-900 mb-3 flex items-center">
+                      <FileText className="h-4 w-4 mr-2 text-gray-600" />
+                      Original Resume
+                    </h4>
+                    <div className="bg-gray-50 rounded-lg p-4 max-h-96 overflow-y-auto">
+                      <pre className="whitespace-pre-wrap text-sm text-gray-800 font-mono">
+                        {result.original_resume?.text || 'No original resume available'}
+                      </pre>
+                    </div>
+                  </div>
+
+                  {/* Optimized Resume */}
+                  <div>
+                    <h4 className="text-md font-medium text-gray-900 mb-3 flex items-center">
+                      <Edit3 className="h-4 w-4 mr-2 text-green-600" />
+                      Optimized Resume
+                    </h4>
+                    <div className="bg-green-50 rounded-lg p-4 max-h-96 overflow-y-auto">
+                      <pre className="whitespace-pre-wrap text-sm text-gray-800 font-mono">
+                        {result.optimization?.optimized_resume || 'No optimized resume available'}
+                      </pre>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className={`rounded-lg p-4 max-h-96 overflow-y-auto ${viewMode === 'original' ? 'bg-gray-50' : 'bg-green-50'
+                  }`}>
+                  <pre className="whitespace-pre-wrap text-sm text-gray-800 font-mono">
+                    {viewMode === 'original'
+                      ? (result.original_resume?.text || 'No original resume available')
+                      : (result.optimization?.optimized_resume || 'No optimized resume available')
+                    }
+                  </pre>
+                </div>
+              )}
+            </div>
           </div>
+
+          {/* Change Highlights */}
+          {viewMode === 'side-by-side' && (
+            <div className="bg-white rounded-lg shadow p-6">
+              <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center">
+                <Award className="h-5 w-5 mr-2 text-purple-600" />
+                Key Changes Made
+              </h3>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <h4 className="font-medium text-gray-900 mb-3">Improvements Made</h4>
+                  <ul className="space-y-2">
+                    {(result.optimization?.improvements_made || []).map((improvement, index) => (
+                      <li key={index} className="flex items-start">
+                        <CheckCircle className="h-4 w-4 mr-2 mt-0.5 text-green-600 flex-shrink-0" />
+                        <span className="text-sm text-gray-700">{improvement}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                <div>
+                  <h4 className="font-medium text-gray-900 mb-3">Keywords Added</h4>
+                  <div className="flex flex-wrap gap-2">
+                    {(result.optimization?.keywords_added || []).map((keyword, index) => (
+                      <span
+                        key={index}
+                        className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium"
+                      >
+                        {keyword}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -539,8 +809,8 @@ const ResumeOptimizer: React.FC = () => {
         </div>
       )}
 
-      {activeTab === 'results' && (
-        <div className="flex justify-center">
+      {(activeTab === 'results' || activeTab === 'comparison') && (
+        <div className="flex justify-center space-x-4">
           <button
             onClick={resetOptimizer}
             className="px-6 py-3 bg-gray-600 text-white rounded-lg font-medium hover:bg-gray-700 transition-colors flex items-center"

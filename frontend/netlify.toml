@@ -5,12 +5,13 @@
 [build.environment]
   NODE_VERSION = "18"
 
-[[redirects]]
-  from = "/*"
-  to = "/index.html"
-  status = 200
+# Serverless functions configuration
+[functions]
+  directory = "netlify/functions"
+  node_bundler = "esbuild"
 
-[build.processing]
+# Build hooks for Playwright
+[[build.processing]]
   skip_processing = false
 
 [build.processing.css]
@@ -23,3 +24,20 @@
 
 [build.processing.html]
   pretty_urls = true
+
+# Redirects for SPA
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+# Function-specific redirects
+[[redirects]]
+  from = "/api/scrape-jobs"
+  to = "/.netlify/functions/scrape-jobs"
+  status = 200
+
+[[redirects]]
+  from = "/api/auto-apply"
+  to = "/.netlify/functions/auto-apply"
+  status = 200

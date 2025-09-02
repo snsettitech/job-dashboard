@@ -13,8 +13,10 @@ from datetime import datetime
 # Configure logger
 logger = logging.getLogger("recruitly.ai_routes")
 
-from ..services.ai_service import analyze_job_match, optimize_resume, AIService
+from ..services.ai_service import analyze_job_match, AIService
+from ..services.enhanced_resume_optimizer import EnhancedResumeOptimizer
 from ..services.file_processor import FileProcessor, validate_resume_quality
+from ..services.cache_service import cache_service
 
 router = APIRouter(prefix="/api/ai", tags=["ai"])
 
@@ -140,8 +142,9 @@ async def optimize_resume_for_job(request: ResumeOptimizationRequest):
             logger.warning(f"Resume optimization request rejected: {error_message}")
             raise HTTPException(status_code=400, detail=error_message)
 
-        # Process with AI service
-        result = await optimize_resume(request.resume_text, request.job_description)
+        # Process with Enhanced Resume Optimizer
+        enhanced_optimizer = EnhancedResumeOptimizer()
+        result = await enhanced_optimizer.optimize_resume(request.resume_text, request.job_description)
 
         # Add transparency metadata
         result["processing_metadata"] = {
@@ -203,7 +206,8 @@ async def upload_analyze_and_optimize_resume(
 
         # Run AI analysis and optimization in parallel
         match_task = analyze_job_match(resume_text, job_description)
-        optimize_task = optimize_resume(resume_text, job_description)
+        enhanced_optimizer = EnhancedResumeOptimizer()
+        optimize_task = enhanced_optimizer.optimize_resume(resume_text, job_description)
 
         # Execute both tasks concurrently
         match_result, optimization_result = await asyncio.gather(match_task, optimize_task)
@@ -223,13 +227,16 @@ async def upload_analyze_and_optimize_resume(
                 "recommendation": match_result["recommendation"],
                 "confidence_score": match_result["confidence_score"],
                 "confidence_level": match_result["confidence_level"],
-                "confidence_interval": match_result["confidence_interval"]
+                "confidence_interval": match_result["confidence_interval"],
+                "overall_match_score": optimization_result.get("match_score_prediction", 0.0)
             },
             "optimization": {
                 "optimized_resume": optimization_result["optimized_resume"],
                 "improvements_made": optimization_result["improvements_made"],
                 "keywords_added": optimization_result["keywords_added"],
                 "ats_score_improvement": optimization_result["ats_score_improvement"],
+                "match_score_prediction": optimization_result["match_score_prediction"],
+                "optimization_summary": optimization_result["optimization_summary"],
                 "confidence_score": optimization_result["confidence_score"],
                 "confidence_level": optimization_result["confidence_level"],
                 "improvement_summary": {
@@ -293,6 +300,68 @@ async def download_optimized_resume(
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error creating download file: {str(e)}")
+
+@router.post("/download-resume-pdf")
+async def download_resume_pdf(
+    resume_text: str = Form(...),
+    filename: str = Form(default="resume.pdf")
+):
+    """
+    Generate and download resume as PDF
+    """
+    try:
+        from app.services.document_generator import DocumentGenerator
+        
+        doc_generator = DocumentGenerator()
+        pdf_content = doc_generator.generate_pdf(resume_text, filename)
+        
+        # Create temporary file
+        with tempfile.NamedTemporaryFile(mode='wb', delete=False, suffix='.pdf') as temp_file:
+            temp_file.write(pdf_content)
+            temp_file_path = temp_file.name
+        
+        # Return file response
+        return FileResponse(
+            temp_file_path,
+            filename=filename,
+            media_type='application/pdf',
+            background=BackgroundTasks().add_task(lambda: os.unlink(temp_file_path))
+        )
+        
+    except Exception as e:
+        logger.error(f"Error generating PDF: {e}")
+        raise HTTPException(status_code=500, detail=f"Error generating PDF: {str(e)}")
+
+@router.post("/download-resume-docx")
+async def download_resume_docx(
+    resume_text: str = Form(...),
+    filename: str = Form(default="resume.docx")
+):
+    """
+    Generate and download resume as DOCX
+    """
+    try:
+        from app.services.document_generator import DocumentGenerator
+        
+        doc_generator = DocumentGenerator()
+        docx_content = doc_generator.generate_docx(resume_text, filename)
+        
+        # Create temporary file
+        with tempfile.NamedTemporaryFile(mode='wb', delete=False, suffix='.docx') as temp_file:
+            temp_file.write(docx_content)
+            temp_file_path = temp_file.name
+        
+        # Return file response
+        return FileResponse(
+            temp_file_path,
+            filename=filename,
+            media_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+            background=BackgroundTasks().add_task(lambda: os.unlink(temp_file_path))
+        )
+        
+    except Exception as e:
+        logger.error(f"Error generating DOCX: {e}")
+        raise HTTPException(status_code=500, detail=f"Error generating DOCX: {str(e)}")
 
 @router.post("/batch-analyze-jobs")
 async def batch_analyze_multiple_jobs(
@@ -411,4 +480,77 @@ def _get_match_recommendation(overall_score: float) -> str:
         return "💡 Moderate match. Focus on highlighting relevant skills and consider optimization."
     else:
         return "🤔 Lower match. Consider if this aligns with your career goals or if significant optimization is needed."
+
+# Cache Management Endpoints
+@router.get("/cache/stats")
+async def get_cache_stats():
+    """
+    Get Redis cache statistics and health information
+    """
+    try:
+        stats = await cache_service.get_cache_stats()
+        return {
+            "success": True,
+            "message": "Cache statistics retrieved successfully",
+            "cache_stats": stats
+        }
+    except Exception as e:
+        logger.error(f"Error retrieving cache stats: {e}")
+        raise HTTPException(status_code=500, detail=f"Error retrieving cache stats: {str(e)}")
+
+@router.get("/cache/health")
+async def get_cache_health():
+    """
+    Check Redis cache health status
+    """
+    try:
+        health = await cache_service.health_check()
+        return {
+            "success": True,
+            "message": "Cache health check completed",
+            "cache_health": health
+        }
+    except Exception as e:
+        logger.error(f"Error checking cache health: {e}")
+        raise HTTPException(status_code=500, detail=f"Error checking cache health: {str(e)}")
+
+@router.delete("/cache/clear/{prefix}")
+async def clear_cache_by_prefix(prefix: str):
+    """
+    Clear cache entries by prefix (embedding, openai_response, job_match, optimization, session, health)
+    """
+    try:
+        success = await cache_service.clear_cache_by_prefix(prefix)
+        if success:
+            return {
+                "success": True,
+                "message": f"Cache cleared successfully for prefix: {prefix}"
+            }
+        else:
+            raise HTTPException(status_code=500, detail="Failed to clear cache")
+    except Exception as e:
+        logger.error(f"Error clearing cache: {e}")
+        raise HTTPException(status_code=500, detail=f"Error clearing cache: {str(e)}")
+
+@router.delete("/cache/clear-all")
+async def clear_all_cache():
+    """
+    Clear all cache entries
+    """
+    try:
+        success = True
+        for prefix in ["embedding", "openai_response", "job_match", "optimization", "session", "health"]:
+            if not await cache_service.clear_cache_by_prefix(prefix):
+                success = False
+        
+        if success:
+            return {
+                "success": True,
+                "message": "All cache entries cleared successfully"
+            }
+        else:
+            raise HTTPException(status_code=500, detail="Failed to clear some cache entries")
+    except Exception as e:
+        logger.error(f"Error clearing all cache: {e}")
+        raise HTTPException(status_code=500, detail=f"Error clearing cache: {str(e)}")
 
