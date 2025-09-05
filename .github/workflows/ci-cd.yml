@@ -6,8 +6,7 @@ on:
   pull_request:
     branches: [ main ]
   schedule:
-    - cron: '0 3 * * *'  # Daily at 3 AM UTC for performance testing
-
+    
 env:
   NODE_VERSION: '18'
   PYTHON_VERSION: '3.12'
